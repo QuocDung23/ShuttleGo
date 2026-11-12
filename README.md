@@ -23,7 +23,17 @@ In the output, you'll find options to open the app in a
 - [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+This project uses [Expo Router](https://docs.expo.dev/router/introduction). Keep route files in `src/app`; screens and feature-specific components live in `src/features`.
+
+## Source structure
+
+- `src/app`: Expo Router route entries
+- `src/navigation`: root navigator and platform-specific tabs
+- `src/features`: screens and components grouped by feature
+- `src/shared`: providers, reusable components, hooks, theme, and constants
+- `assets`: app images and fonts
+
+The current home screen is in `src/features/home/screens/HomeScreen.tsx`; the Explore screen is in `src/features/explore/screens/ExploreScreen.tsx`.
 
 ## Get a fresh project
 
