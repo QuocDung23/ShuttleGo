@@ -1,13 +1,14 @@
 import { z } from 'zod';
-import { VenueStatus } from '../../common/enums.js';
-import { idParam, pagination } from '../../common/validation.js';
+import { VenueStatus } from '@/common/enums.js';
+import { idParam, pagination } from '@/common/validation.js';
 
 const amenityIds = z
   .array(idParam)
   .refine((ids) => new Set(ids).size === ids.length, 'amenityIds must be unique');
 
 export const createVenueSchema = z.object({
-  ownerId: idParam,
+  /** Required for admins; owners always create venues for themselves. */
+  ownerId: idParam.optional(),
   name: z.string().trim().min(1).max(150),
   address: z.string().trim().min(1).max(255),
   district: z.string().trim().min(1).max(100),

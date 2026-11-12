@@ -8,9 +8,9 @@ import {
   PrimaryGeneratedColumn,
   type Relation,
 } from 'typeorm';
-import { NotificationType } from '../../common/enums.js';
-import { Booking } from '../bookings/booking.entity.js';
-import { User } from '../users/user.entity.js';
+import { NotificationType } from '@/common/enums.js';
+import { Booking } from '@/modules/bookings/booking.entity.js';
+import { User } from '@/modules/users/user.entity.js';
 
 @Entity('notifications')
 @Index(['userId', 'isRead'])

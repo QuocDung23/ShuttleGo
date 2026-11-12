@@ -1,12 +1,12 @@
-import { notFound } from '../../common/http-error.js';
-import { definedOnly, paginate, skipTake } from '../../common/validation.js';
-import { AppDataSource } from '../../database/data-source.js';
-import { Notification } from './notification.entity.js';
+import { notFound } from '@/common/http-error.js';
+import { definedOnly, paginate, skipTake } from '@/common/validation.js';
+import { AppDataSource } from '@/database/data-source.js';
+import { Notification } from '@/modules/notifications/notification.entity.js';
 import type {
   CreateNotificationInput,
   QueryNotificationsInput,
   UpdateNotificationInput,
-} from './notifications.schema.js';
+} from '@/modules/notifications/notifications.schema.js';
 
 const repo = () => AppDataSource.getRepository(Notification);
 

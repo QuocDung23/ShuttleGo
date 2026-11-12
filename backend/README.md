@@ -50,6 +50,23 @@ src/
 - Lỗi: `{ message, details? }`. Các mã: `400` dữ liệu sai hoặc id tham chiếu không tồn tại, `404` không tìm thấy, `409` trùng (phone, tên sân...), trùng giờ đặt sân, hoặc xoá bản ghi đang được dùng.
 - `passwordHash` và `fcmToken` không bao giờ được trả về.
 
+## Xác thực & phân quyền
+
+Đăng ký/đăng nhập để lấy JWT, gửi kèm header `Authorization: Bearer <token>`.
+
+| Endpoint | Mô tả |
+| --- | --- |
+| `POST /auth/register` | `{ fullName, phone, password, role? }` — `role` chỉ `player` (mặc định) hoặc `owner` |
+| `POST /auth/login` | `{ phone, password }` → `{ token, user }` |
+| `GET /auth/me` | User hiện tại (cần token) |
+
+Quyền:
+- **Công khai**: `GET` venues / courts / price-rules / amenities / operating-hours, `/health`.
+- **Đã đăng nhập**: bookings, favorites, notifications, tạo reports (chỉ dữ liệu của bản thân).
+- **owner / admin**: quản lý venue / court / price-rule / operating-hours (owner chỉ venue của mình).
+- **admin**: quản lý users, amenities, duyệt venue, xử lý reports, tạo notifications.
+- `401` khi thiếu/sai token, `403` khi không đủ quyền.
+
 ## Endpoints
 
 | Resource | Endpoints | Filter (query) |
@@ -94,23 +111,26 @@ src/
 ## Ví dụ
 
 ```bash
-# tạo user
-curl -X POST localhost:3000/api/users -H 'Content-Type: application/json' \
+# đăng ký (lấy token)
+curl -X POST localhost:3000/api/auth/register -H 'Content-Type: application/json' \
   -d '{"fullName":"Nguyễn Văn A","phone":"0901234567","password":"secret123","role":"owner"}'
 
-# đặt sân
-curl -X POST localhost:3000/api/bookings -H 'Content-Type: application/json' \
-  -d '{"courtId":1,"playerId":2,"createdBy":2,"contactName":"B","contactPhone":"0912345678",
+# đăng nhập
+TOKEN=$(curl -s -X POST localhost:3000/api/auth/login -H 'Content-Type: application/json' \
+  -d '{"phone":"0901234567","password":"secret123"}' | node -pe 'JSON.parse(require("fs").readFileSync(0)).token')
+
+# đặt sân (dùng token)
+curl -X POST localhost:3000/api/bookings -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"courtId":1,"contactName":"B","contactPhone":"0912345678",
        "bookingDate":"2026-11-20","startTime":"18:00","endTime":"20:00","totalAmount":240000}'
 
 # huỷ đơn
-curl -X PATCH localhost:3000/api/bookings/1 -H 'Content-Type: application/json' \
+curl -X PATCH localhost:3000/api/bookings/1 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"status":"cancelled","cancelReason":"Bận","cancelledBy":2}'
 ```
 
 ## Chưa có (làm tiếp)
 
-- Đăng nhập / JWT và phân quyền theo `role`. Hiện tại API **mở hoàn toàn**.
 - Tự tính `totalAmount` từ `price_rules` + `weekendSurcharge`. Hiện client phải gửi lên.
 - Kiểm tra giờ đặt có nằm trong `operating_hours` hay không.
 - Upload ảnh (`avatarUrl`, `coverImageUrl`, `proofImageUrl` đang là URL dạng text).

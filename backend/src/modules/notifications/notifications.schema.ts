@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { NotificationType } from '../../common/enums.js';
-import { idParam, pagination, queryBoolean, queryId } from '../../common/validation.js';
+import { NotificationType } from '@/common/enums.js';
+import { idParam, pagination, queryBoolean, queryId } from '@/common/validation.js';
 
 export const createNotificationSchema = z.object({
   userId: idParam,

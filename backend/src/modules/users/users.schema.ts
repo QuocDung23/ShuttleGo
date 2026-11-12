@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { UserRole, UserStatus } from '../../common/enums.js';
-import { pagination } from '../../common/validation.js';
+import { UserRole, UserStatus } from '@/common/enums.js';
+import { pagination } from '@/common/validation.js';
 
-/** Vietnamese phone number, e.g. 0901234567 or +84901234567 */
+/** Vietnamese mobile number: 0901234567 or +84901234567 */
 export const phoneString = z
   .string()
-  .regex(/^(\+84|0)\d{9,10}$/, 'Invalid phone number');
+  .regex(/^(0\d{9}|\+84\d{9})$/, 'Invalid phone number');
 
 export const createUserSchema = z.object({
   fullName: z.string().trim().min(1).max(100),

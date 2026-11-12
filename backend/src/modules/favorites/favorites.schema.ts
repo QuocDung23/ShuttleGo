@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idParam, pagination, queryId } from '../../common/validation.js';
+import { idParam, pagination, queryId } from '@/common/validation.js';
 
 export const createFavoriteSchema = z.object({
   userId: idParam,

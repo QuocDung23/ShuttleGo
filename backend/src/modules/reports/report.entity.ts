@@ -8,10 +8,10 @@ import {
   PrimaryGeneratedColumn,
   type Relation,
 } from 'typeorm';
-import { ReportStatus } from '../../common/enums.js';
-import { Booking } from '../bookings/booking.entity.js';
-import { User } from '../users/user.entity.js';
-import { Venue } from '../venues/venue.entity.js';
+import { ReportStatus } from '@/common/enums.js';
+import { Booking } from '@/modules/bookings/booking.entity.js';
+import { User } from '@/modules/users/user.entity.js';
+import { Venue } from '@/modules/venues/venue.entity.js';
 
 @Entity('reports')
 export class Report {

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idParam, queryBoolean, queryId } from '../../common/validation.js';
+import { idParam, queryBoolean, queryId } from '@/common/validation.js';
 
 export const createCourtSchema = z.object({
   venueId: idParam,

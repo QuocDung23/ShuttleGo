@@ -1,9 +1,10 @@
 import { z } from 'zod';
-import { ReportStatus } from '../../common/enums.js';
-import { idParam, pagination, queryId } from '../../common/validation.js';
+import { ReportStatus } from '@/common/enums.js';
+import { idParam, pagination, queryId } from '@/common/validation.js';
 
 export const createReportSchema = z.object({
-  reporterId: idParam,
+  /** Defaults to the authenticated user; admins may set it explicitly. */
+  reporterId: idParam.optional(),
   bookingId: idParam.nullable().optional(),
   venueId: idParam.nullable().optional(),
   content: z.string().trim().min(1),

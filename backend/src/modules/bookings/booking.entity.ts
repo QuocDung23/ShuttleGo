@@ -14,9 +14,9 @@ import {
   BookingStatus,
   PaymentMethod,
   PaymentStatus,
-} from '../../common/enums.js';
-import { Court } from '../courts/court.entity.js';
-import { User } from '../users/user.entity.js';
+} from '@/common/enums.js';
+import { Court } from '@/modules/courts/court.entity.js';
+import { User } from '@/modules/users/user.entity.js';
 
 @Entity('bookings')
 @Index(['courtId', 'bookingDate'])

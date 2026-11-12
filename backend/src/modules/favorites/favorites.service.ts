@@ -1,8 +1,8 @@
-import { notFound } from '../../common/http-error.js';
-import { definedOnly, paginate, skipTake } from '../../common/validation.js';
-import { AppDataSource } from '../../database/data-source.js';
-import { Favorite } from './favorite.entity.js';
-import type { CreateFavoriteInput, QueryFavoritesInput } from './favorites.schema.js';
+import { notFound } from '@/common/http-error.js';
+import { definedOnly, paginate, skipTake } from '@/common/validation.js';
+import { AppDataSource } from '@/database/data-source.js';
+import { Favorite } from '@/modules/favorites/favorite.entity.js';
+import type { CreateFavoriteInput, QueryFavoritesInput } from '@/modules/favorites/favorites.schema.js';
 
 const repo = () => AppDataSource.getRepository(Favorite);
 

@@ -1,7 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { QueryFailedError } from 'typeorm';
 import { ZodError } from 'zod';
-import { HttpError } from './http-error.js';
+import { HttpError } from '@/common/http-error.js';
 
 /** Postgres error codes -> HTTP status + message */
 const PG_ERRORS: Record<string, [number, string]> = {
@@ -36,14 +36,16 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
 
   if (err instanceof QueryFailedError) {
     const driverError = err.driverError as { code?: string; detail?: string };
+    // Don't leak constraint names / row values to clients in production.
+    const details = process.env.NODE_ENV === 'production' ? undefined : driverError.detail;
     // FK violation on insert/update = referenced row is missing (400); on delete = row still in use (409)
     if (driverError.code === '23503' && driverError.detail?.includes('is not present')) {
-      res.status(400).json({ message: 'Referenced record does not exist', details: driverError.detail });
+      res.status(400).json({ message: 'Referenced record does not exist', details });
       return;
     }
     const mapped = driverError.code ? PG_ERRORS[driverError.code] : undefined;
     if (mapped) {
-      res.status(mapped[0]).json({ message: mapped[1], details: driverError.detail });
+      res.status(mapped[0]).json({ message: mapped[1], details });
       return;
     }
   }

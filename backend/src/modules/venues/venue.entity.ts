@@ -13,12 +13,12 @@ import {
   type Relation,
   type ValueTransformer,
 } from 'typeorm';
-import { VenueStatus } from '../../common/enums.js';
-import { Amenity } from '../amenities/amenity.entity.js';
-import { Court } from '../courts/court.entity.js';
-import { OperatingHour } from '../operating-hours/operating-hour.entity.js';
-import { PriceRule } from '../price-rules/price-rule.entity.js';
-import { User } from '../users/user.entity.js';
+import { VenueStatus } from '@/common/enums.js';
+import { Amenity } from '@/modules/amenities/amenity.entity.js';
+import { Court } from '@/modules/courts/court.entity.js';
+import { OperatingHour } from '@/modules/operating-hours/operating-hour.entity.js';
+import { PriceRule } from '@/modules/price-rules/price-rule.entity.js';
+import { User } from '@/modules/users/user.entity.js';
 
 /** pg returns NUMERIC as string; expose it as a JS number. */
 const numericTransformer: ValueTransformer = {

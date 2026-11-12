@@ -1,9 +1,14 @@
 import { Router } from 'express';
-import { parseId } from '../../common/validation.js';
-import { createUserSchema, queryUsersSchema, updateUserSchema } from './users.schema.js';
-import * as service from './users.service.js';
+import { authenticate, requireRole } from '@/common/auth.js';
+import { UserRole } from '@/common/enums.js';
+import { parseId } from '@/common/validation.js';
+import { createUserSchema, queryUsersSchema, updateUserSchema } from '@/modules/users/users.schema.js';
+import * as service from '@/modules/users/users.service.js';
 
 export const usersRouter = Router();
+
+// User management is admin-only; users manage their own profile via /auth/me.
+usersRouter.use(authenticate, requireRole(UserRole.ADMIN));
 
 usersRouter.get('/', async (req, res) => {
   res.json(await service.findAll(queryUsersSchema.parse(req.query)));

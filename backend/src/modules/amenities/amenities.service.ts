@@ -1,7 +1,7 @@
-import { notFound } from '../../common/http-error.js';
-import { AppDataSource } from '../../database/data-source.js';
-import type { CreateAmenityInput, UpdateAmenityInput } from './amenities.schema.js';
-import { Amenity } from './amenity.entity.js';
+import { notFound } from '@/common/http-error.js';
+import { AppDataSource } from '@/database/data-source.js';
+import type { CreateAmenityInput, UpdateAmenityInput } from '@/modules/amenities/amenities.schema.js';
+import { Amenity } from '@/modules/amenities/amenity.entity.js';
 
 const repo = () => AppDataSource.getRepository(Amenity);
 

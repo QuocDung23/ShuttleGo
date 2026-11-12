@@ -4,16 +4,16 @@ import {
   BookingStatus,
   PaymentMethod,
   PaymentStatus,
-} from '../../common/enums.js';
-import { dateString, idParam, pagination, queryId, timeString } from '../../common/validation.js';
-import { phoneString } from '../users/users.schema.js';
+} from '@/common/enums.js';
+import { dateString, idParam, pagination, queryId, timeString } from '@/common/validation.js';
+import { phoneString } from '@/modules/users/users.schema.js';
 
 export const createBookingSchema = z.object({
   courtId: idParam,
   /** null for walk-in customers without an account */
   playerId: idParam.nullable().optional(),
-  /** user who created the booking (player or owner) */
-  createdBy: idParam,
+  /** Ignored — the API always uses the authenticated user as the creator. */
+  createdBy: idParam.optional(),
   source: z.enum(BookingSource).optional(),
   contactName: z.string().trim().min(1).max(100),
   contactPhone: phoneString,

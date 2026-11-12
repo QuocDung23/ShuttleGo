@@ -1,10 +1,10 @@
 import bcrypt from 'bcryptjs';
 import { ILike, type FindOptionsWhere } from 'typeorm';
-import { notFound } from '../../common/http-error.js';
-import { definedOnly, escapeLike, paginate, skipTake } from '../../common/validation.js';
-import { AppDataSource } from '../../database/data-source.js';
-import { User } from './user.entity.js';
-import type { CreateUserInput, QueryUsersInput, UpdateUserInput } from './users.schema.js';
+import { notFound } from '@/common/http-error.js';
+import { definedOnly, escapeLike, paginate, skipTake } from '@/common/validation.js';
+import { AppDataSource } from '@/database/data-source.js';
+import { User } from '@/modules/users/user.entity.js';
+import type { CreateUserInput, QueryUsersInput, UpdateUserInput } from '@/modules/users/users.schema.js';
 
 const SALT_ROUNDS = 10;
 const repo = () => AppDataSource.getRepository(User);

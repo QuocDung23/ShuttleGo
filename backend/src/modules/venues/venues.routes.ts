@@ -1,16 +1,21 @@
 import { Router } from 'express';
-import { parseId } from '../../common/validation.js';
-import { operatingHoursRouter } from '../operating-hours/operating-hours.routes.js';
+import { authenticate, requireRole } from '@/common/auth.js';
+import { UserRole } from '@/common/enums.js';
+import { parseId } from '@/common/validation.js';
+import { operatingHoursRouter } from '@/modules/operating-hours/operating-hours.routes.js';
 import {
   createVenueSchema,
   queryVenuesSchema,
   reviewVenueSchema,
   setAmenitiesSchema,
   updateVenueSchema,
-} from './venues.schema.js';
-import * as service from './venues.service.js';
+} from '@/modules/venues/venues.schema.js';
+import * as service from '@/modules/venues/venues.service.js';
 
 export const venuesRouter = Router();
+
+const ownerOrAdmin = [authenticate, requireRole(UserRole.OWNER, UserRole.ADMIN)];
+const adminOnly = [authenticate, requireRole(UserRole.ADMIN)];
 
 venuesRouter.get('/', async (req, res) => {
   res.json(await service.findAll(queryVenuesSchema.parse(req.query)));
@@ -20,21 +25,21 @@ venuesRouter.get('/:id', async (req, res) => {
   res.json(await service.findOne(parseId(req.params.id)));
 });
 
-venuesRouter.post('/', async (req, res) => {
-  res.status(201).json(await service.create(createVenueSchema.parse(req.body)));
+venuesRouter.post('/', ...ownerOrAdmin, async (req, res) => {
+  res.status(201).json(await service.create(createVenueSchema.parse(req.body), req.user!));
 });
 
-venuesRouter.patch('/:id', async (req, res) => {
-  res.json(await service.update(parseId(req.params.id), updateVenueSchema.parse(req.body)));
+venuesRouter.patch('/:id', ...ownerOrAdmin, async (req, res) => {
+  res.json(await service.update(parseId(req.params.id), updateVenueSchema.parse(req.body), req.user!));
 });
 
 /** Admin approves / rejects / suspends a venue */
-venuesRouter.patch('/:id/review', async (req, res) => {
+venuesRouter.patch('/:id/review', ...adminOnly, async (req, res) => {
   res.json(await service.review(parseId(req.params.id), reviewVenueSchema.parse(req.body)));
 });
 
-venuesRouter.delete('/:id', async (req, res) => {
-  await service.remove(parseId(req.params.id));
+venuesRouter.delete('/:id', ...ownerOrAdmin, async (req, res) => {
+  await service.remove(parseId(req.params.id), req.user!);
   res.status(204).end();
 });
 
@@ -44,9 +49,9 @@ venuesRouter.get('/:id/amenities', async (req, res) => {
 });
 
 /** Replace the venue's amenity list */
-venuesRouter.put('/:id/amenities', async (req, res) => {
+venuesRouter.put('/:id/amenities', ...ownerOrAdmin, async (req, res) => {
   const { amenityIds } = setAmenitiesSchema.parse(req.body);
-  res.json(await service.setAmenities(parseId(req.params.id), amenityIds));
+  res.json(await service.setAmenities(parseId(req.params.id), amenityIds, req.user!));
 });
 
 // operating_hours: /venues/:venueId/operating-hours

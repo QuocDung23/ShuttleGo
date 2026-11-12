@@ -1,5 +1,6 @@
-import { app } from './app.js';
-import { AppDataSource } from './database/data-source.js';
+import '@/config/env.js';
+import { app } from '@/app.js';
+import { AppDataSource } from '@/database/data-source.js';
 
 const PORT = Number(process.env.PORT ?? 3000);
 

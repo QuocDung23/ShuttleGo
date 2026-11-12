@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { idParam, queryId, timeString } from '../../common/validation.js';
+import { idParam, queryId, timeString } from '@/common/validation.js';
 
 export const createPriceRuleSchema = z.object({
   venueId: idParam,

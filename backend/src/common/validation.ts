@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { badRequest } from './http-error.js';
+import { badRequest } from '@/common/http-error.js';
 
 /** Route param ":id" -> positive integer */
 export const idParam = z.coerce.number().int().positive();

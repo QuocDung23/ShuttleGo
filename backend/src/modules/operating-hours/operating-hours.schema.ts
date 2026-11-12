@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { timeString, timeToMinutes } from '../../common/validation.js';
+import { timeString, timeToMinutes } from '@/common/validation.js';
 
 /** 0 = Sunday, 1 = Monday, ... 6 = Saturday */
 export const dayOfWeek = z.coerce.number().int().min(0).max(6);

@@ -1,32 +1,56 @@
 import { randomInt } from 'node:crypto';
-import { Between, LessThanOrEqual, MoreThanOrEqual, type EntityManager } from 'typeorm';
-import { BookingStatus, PaymentStatus } from '../../common/enums.js';
-import { badRequest, conflict, notFound } from '../../common/http-error.js';
-import { assertTimeRange, definedOnly, paginate, skipTake } from '../../common/validation.js';
-import { AppDataSource } from '../../database/data-source.js';
-import { Court } from '../courts/court.entity.js';
-import { Booking } from './booking.entity.js';
+import {
+  Between,
+  LessThanOrEqual,
+  MoreThanOrEqual,
+  type EntityManager,
+  type FindOptionsWhere,
+} from 'typeorm';
+import type { AuthUser } from '@/common/auth.js';
+import { BookingStatus, PaymentStatus, UserRole } from '@/common/enums.js';
+import { badRequest, conflict, forbidden, notFound } from '@/common/http-error.js';
+import { assertTimeRange, definedOnly, paginate, skipTake } from '@/common/validation.js';
+import { AppDataSource } from '@/database/data-source.js';
+import { Booking } from '@/modules/bookings/booking.entity.js';
+import { Court } from '@/modules/courts/court.entity.js';
 import type {
   CreateBookingInput,
   QueryBookingsInput,
   UpdateBookingInput,
-} from './bookings.schema.js';
+} from '@/modules/bookings/bookings.schema.js';
 
 const repo = () => AppDataSource.getRepository(Booking);
 
 const DETAIL_RELATIONS = { court: { venue: true }, player: true, creator: true } as const;
 
-export async function findAll(query: QueryBookingsInput) {
+export async function findAll(query: QueryBookingsInput, user: AuthUser) {
   const { page, limit, venueId, date, from, to, ...filters } = query;
   const bookingDate =
     date ??
     (from && to ? Between(from, to) : from ? MoreThanOrEqual(from) : to ? LessThanOrEqual(to) : undefined);
 
+  const court = definedOnly({
+    ...(venueId ? { venueId } : {}),
+    // Owners only see bookings on courts of their own venues.
+    ...(user.role === UserRole.OWNER ? { venue: { ownerId: user.id } } : {}),
+  }) as FindOptionsWhere<Court>;
+
+  const base: FindOptionsWhere<Booking> = {
+    ...definedOnly({ ...filters, bookingDate }),
+    ...(Object.keys(court).length ? { court } : {}),
+  };
+
+  // Players only see bookings they made or are the player of.
+  const where =
+    user.role === UserRole.PLAYER
+      ? [
+          { ...base, playerId: user.id },
+          { ...base, createdBy: user.id },
+        ]
+      : base;
+
   const result = await repo().findAndCount({
-    where: {
-      ...definedOnly({ ...filters, bookingDate }),
-      ...(venueId ? { court: { venueId } } : {}),
-    },
+    where,
     relations: { court: { venue: true }, player: true },
     order: { bookingDate: 'DESC', startTime: 'DESC' },
     ...skipTake({ page, limit }),
@@ -34,30 +58,41 @@ export async function findAll(query: QueryBookingsInput) {
   return paginate(result, { page, limit });
 }
 
-export async function findOne(id: number) {
+export async function findOne(id: number, user?: AuthUser) {
   const booking = await repo().findOne({ where: { id }, relations: DETAIL_RELATIONS });
   if (!booking) throw notFound(`Booking #${id} not found`);
+  if (user) assertBookingAccess(user, booking);
   return booking;
 }
 
-export async function create(input: CreateBookingInput) {
+export async function create(input: CreateBookingInput, user: AuthUser) {
   assertTimeRange(input.startTime, input.endTime, 'booking time');
+
+  // The authenticated user is always the creator; players can only book for themselves.
+  const createdBy = user.id;
+  const playerId = user.role === UserRole.PLAYER ? user.id : (input.playerId ?? null);
 
   const id = await AppDataSource.transaction(async (manager) => {
     await lockActiveCourt(manager, input.courtId);
     await assertSlotFree(manager, input);
 
-    const booking = manager.create(Booking, { ...input, code: generateCode() });
+    const booking = manager.create(Booking, {
+      ...input,
+      createdBy,
+      playerId,
+      code: generateCode(),
+    });
     applyStatusTimestamps(booking);
     return (await manager.save(booking)).id;
   });
   return findOne(id);
 }
 
-export async function update(id: number, input: UpdateBookingInput) {
+export async function update(id: number, input: UpdateBookingInput, user: AuthUser) {
   await AppDataSource.transaction(async (manager) => {
-    const booking = await manager.findOneBy(Booking, { id });
+    const booking = await manager.findOne(Booking, { where: { id }, relations: DETAIL_RELATIONS });
     if (!booking) throw notFound(`Booking #${id} not found`);
+    assertBookingAccess(user, booking);
 
     const before = { ...booking };
     manager.merge(Booking, booking, input);
@@ -80,15 +115,29 @@ export async function update(id: number, input: UpdateBookingInput) {
     applyStatusTimestamps(booking, before);
     await manager.save(booking);
   });
-  return findOne(id);
+  return findOne(id, user);
 }
 
-export async function remove(id: number) {
-  const { affected } = await repo().delete({ id });
-  if (!affected) throw notFound(`Booking #${id} not found`);
+export async function remove(id: number, user: AuthUser) {
+  const booking = await repo().findOne({ where: { id }, relations: DETAIL_RELATIONS });
+  if (!booking) throw notFound(`Booking #${id} not found`);
+  assertBookingAccess(user, booking);
+  await repo().remove(booking);
 }
 
 // ---------------------------------------------------------------------------
+
+function assertBookingAccess(user: AuthUser, booking: Booking) {
+  if (user.role === UserRole.ADMIN) return;
+  if (
+    user.role === UserRole.PLAYER &&
+    (booking.playerId === user.id || booking.createdBy === user.id)
+  ) {
+    return;
+  }
+  if (user.role === UserRole.OWNER && booking.court?.venue?.ownerId === user.id) return;
+  throw forbidden('You cannot access this booking');
+}
 
 /** Row-locks the court so two concurrent bookings of the same court are serialized. */
 async function lockCourt(manager: EntityManager, courtId: number) {
@@ -141,6 +190,13 @@ function applyStatusTimestamps(booking: Booking, before?: Booking) {
   if (booking.status !== before?.status) {
     if (booking.status === BookingStatus.CONFIRMED) booking.confirmedAt ??= now;
     if (booking.status === BookingStatus.CANCELLED) booking.cancelledAt = now;
+    // Keep timestamps consistent when a booking is reopened / un-confirmed.
+    if (before?.status === BookingStatus.CANCELLED && booking.status !== BookingStatus.CANCELLED) {
+      booking.cancelledAt = null;
+    }
+    if (before?.status === BookingStatus.CONFIRMED && booking.status === BookingStatus.PENDING) {
+      booking.confirmedAt = null;
+    }
   }
   if (booking.paymentStatus !== before?.paymentStatus && booking.paymentStatus === PaymentStatus.PAID) {
     booking.paidAt ??= now;

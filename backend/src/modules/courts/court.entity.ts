@@ -7,7 +7,7 @@ import {
   PrimaryGeneratedColumn,
   type Relation,
 } from 'typeorm';
-import { Venue } from '../venues/venue.entity.js';
+import { Venue } from '@/modules/venues/venue.entity.js';
 
 @Entity('courts')
 @Index(['venueId', 'name'], { unique: true })

@@ -1,9 +1,9 @@
-import { ReportStatus } from '../../common/enums.js';
-import { notFound } from '../../common/http-error.js';
-import { definedOnly, paginate, skipTake } from '../../common/validation.js';
-import { AppDataSource } from '../../database/data-source.js';
-import { Report } from './report.entity.js';
-import type { CreateReportInput, QueryReportsInput, UpdateReportInput } from './reports.schema.js';
+import { ReportStatus } from '@/common/enums.js';
+import { notFound } from '@/common/http-error.js';
+import { definedOnly, paginate, skipTake } from '@/common/validation.js';
+import { AppDataSource } from '@/database/data-source.js';
+import { Report } from '@/modules/reports/report.entity.js';
+import type { CreateReportInput, QueryReportsInput, UpdateReportInput } from '@/modules/reports/reports.schema.js';
 
 const repo = () => AppDataSource.getRepository(Report);
 const CLOSED = [ReportStatus.RESOLVED, ReportStatus.REJECTED];

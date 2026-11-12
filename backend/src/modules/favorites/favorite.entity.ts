@@ -6,8 +6,8 @@ import {
   PrimaryColumn,
   type Relation,
 } from 'typeorm';
-import { User } from '../users/user.entity.js';
-import { Venue } from '../venues/venue.entity.js';
+import { User } from '@/modules/users/user.entity.js';
+import { Venue } from '@/modules/venues/venue.entity.js';
 
 @Entity('favorites')
 export class Favorite {

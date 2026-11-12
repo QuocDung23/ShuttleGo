@@ -7,7 +7,7 @@ import {
   PrimaryColumn,
   type Relation,
 } from 'typeorm';
-import { Venue } from '../venues/venue.entity.js';
+import { Venue } from '@/modules/venues/venue.entity.js';
 
 @Entity('operating_hours')
 @Check('"day_of_week" BETWEEN 0 AND 6')
