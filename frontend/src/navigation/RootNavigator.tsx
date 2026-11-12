@@ -3,7 +3,7 @@ import { View } from 'react-native';
 
 import { AppProviders } from '@/shared/providers';
 import AppTabs from '@/navigation/AppTabs';
-import { ownerColors } from '@/shared/components/owner-ui';
+import { ownerColors } from '@/components/ui/owner-ui';
 
 const mainPaths = ['/', '/schedule', '/revenue', '/account'];
 

@@ -3,7 +3,7 @@ import { SymbolView } from 'expo-symbols';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { OwnerText, ownerColors } from '@/shared/components/owner-ui';
+import { OwnerText, ownerColors } from '@/components/ui/owner-ui';
 
 const tabs = [
   { path: '/', icon: { ios: 'square.grid.2x2.fill', android: 'grid_view', web: 'grid_view' }, label: 'Tổng quan' },
