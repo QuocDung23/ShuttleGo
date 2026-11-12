@@ -1,22 +1,14 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { OwnerButton, OwnerCard, OwnerText, ownerColors } from '@/components/ui/owner-ui';
+import { OwnerButton, OwnerCard, OwnerText } from '@/components/ui/owner-ui';
 import type { PendingBooking } from '@/models/booking';
 
 export function PendingBookingCard({ booking, onApprove, onReject }: { booking: PendingBooking; onApprove: () => void; onReject: () => void }) {
   return (
     <OwnerCard>
-      <View style={styles.header}><OwnerText weight="semibold">{booking.customerName}</OwnerText><View style={styles.status}><OwnerText size={12} weight="semibold" color={ownerColors.blueInk}>Chờ duyệt</OwnerText></View></View>
-      <View style={styles.info}><OwnerText color={ownerColors.muted}>{booking.time}</OwnerText><OwnerText color={ownerColors.muted}>{booking.details}</OwnerText></View>
-      <View style={styles.actions}><OwnerButton title="Từ chối" outline style={styles.action} onPress={onReject} /><OwnerButton title="Duyệt" style={styles.action} onPress={onApprove} /></View>
+      <View className="flex-row items-center justify-between"><OwnerText className="font-familjen-semibold">{booking.customerName}</OwnerText><View className="rounded-[20px] bg-slot-pending-background px-3.5 py-[5px]"><OwnerText tone="pending" className="font-familjen-semibold text-caption">Chờ duyệt</OwnerText></View></View>
+      <View className="gap-2 pl-[22px]"><OwnerText tone="muted">{booking.time}</OwnerText><OwnerText tone="muted">{booking.details}</OwnerText></View>
+      <View className="flex-row justify-end gap-2"><OwnerButton title="Từ chối" outline className="min-h-[46px] min-w-[120px]" onPress={onReject} /><OwnerButton title="Duyệt" className="min-h-[46px] min-w-[120px]" onPress={onApprove} /></View>
     </OwnerCard>
   );
 }
-
-const styles = StyleSheet.create({
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  status: { borderRadius: 20, backgroundColor: ownerColors.blue, paddingHorizontal: 14, paddingVertical: 5 },
-  info: { paddingLeft: 22, gap: 8 },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  action: { minWidth: 120, minHeight: 46 },
-});

@@ -9,5 +9,5 @@ export default function AccountPage() {
   const router = useRouter();
   const { profile, menu, logout } = useAccountViewModel();
 
-  return <OwnerPage><OwnerText size={24} weight="bold" style={{ marginTop: 40, marginBottom: 6 }}>Tài khoản</OwnerText><AccountProfile {...profile} /><AccountMenu items={menu} onNavigate={(path) => router.push(path)} /><OwnerButton title="Đăng xuất" outline onPress={logout} style={{ marginTop: 10 }} /></OwnerPage>;
+  return <OwnerPage><OwnerText className="mb-1.5 mt-10 font-familjen-bold text-headline">Tài khoản</OwnerText><AccountProfile {...profile} /><AccountMenu items={menu} onNavigate={(path) => router.push(path)} /><OwnerButton title="Đăng xuất" outline onPress={logout} className="mt-2.5" /></OwnerPage>;
 }

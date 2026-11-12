@@ -1,23 +1,15 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { OwnerCard, OwnerText, ownerColors } from '@/components/ui/owner-ui';
+import { OwnerCard, OwnerText } from '@/components/ui/owner-ui';
 import type { RevenueBar } from '@/models/revenue';
 
 export function RevenueChart({ bars }: { bars: RevenueBar[] }) {
   return (
-    <OwnerCard style={styles.card}>
-      <OwnerText size={12} color={ownerColors.muted}>Doanh thu 7 ngày qua</OwnerText>
-      <OwnerText size={26} weight="bold">3.300.000đ</OwnerText>
-      <OwnerText size={12} color={ownerColors.muted}>18 đơn · 27 giờ đã bán qua ShuttleGo</OwnerText>
-      <View style={styles.chart}>{bars.map(([day, height, amount]) => <View key={day} style={styles.column}><OwnerText size={11} color={ownerColors.muted}>{amount}</OwnerText><View style={[styles.bar, { height }, day === 'H.nay' && styles.today]} /><OwnerText size={11}>{day}</OwnerText></View>)}</View>
+    <OwnerCard className="gap-0.5 p-4">
+      <OwnerText tone="muted" className="text-caption">Doanh thu 7 ngày qua</OwnerText>
+      <OwnerText className="font-familjen-bold text-[26px]">3.300.000đ</OwnerText>
+      <OwnerText tone="muted" className="text-caption">18 đơn · 27 giờ đã bán qua ShuttleGo</OwnerText>
+      <View className="mt-5 h-[138px] flex-row items-end justify-between gap-1.5">{bars.map(([day, height, amount]) => <View key={day} className="flex-1 items-center justify-end gap-[5px]"><OwnerText tone="muted" className="text-[11px]">{amount}</OwnerText><View className={`w-full max-w-9 rounded-lg ${day === 'H.nay' ? 'bg-primary' : 'bg-primary-container'}`} style={{ height }} /><OwnerText className="text-[11px]">{day}</OwnerText></View>)}</View>
     </OwnerCard>
   );
 }
-
-const styles = StyleSheet.create({
-  card: { padding: 16, gap: 2 },
-  chart: { height: 138, marginTop: 20, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 6 },
-  column: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 5 },
-  bar: { width: '100%', maxWidth: 36, borderRadius: 8, backgroundColor: ownerColors.accentSoft },
-  today: { backgroundColor: ownerColors.accent },
-});

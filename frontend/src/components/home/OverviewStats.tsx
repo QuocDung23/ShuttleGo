@@ -1,17 +1,12 @@
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
-import { OwnerCard, OwnerText, ownerColors } from '@/components/ui/owner-ui';
+import { OwnerCard, OwnerText } from '@/components/ui/owner-ui';
 
 export function OverviewStats({ pendingCount, occupancyLabel }: { pendingCount: number; occupancyLabel: string }) {
   return (
-    <View style={styles.stats}>
-      <OwnerCard style={styles.stat}><OwnerText size={12} color={ownerColors.muted}>Đơn chờ duyệt</OwnerText><OwnerText size={24} weight="bold">{pendingCount}</OwnerText></OwnerCard>
-      <OwnerCard style={styles.stat}><OwnerText size={12} color={ownerColors.muted}>Hôm nay đã kín</OwnerText><OwnerText size={24} weight="bold">{occupancyLabel}</OwnerText></OwnerCard>
+    <View className="flex-row gap-2">
+      <OwnerCard className="h-[84px] flex-1 justify-center gap-1 p-3.5"><OwnerText tone="muted" className="text-caption">Đơn chờ duyệt</OwnerText><OwnerText className="font-familjen-bold text-headline">{pendingCount}</OwnerText></OwnerCard>
+      <OwnerCard className="h-[84px] flex-1 justify-center gap-1 p-3.5"><OwnerText tone="muted" className="text-caption">Hôm nay đã kín</OwnerText><OwnerText className="font-familjen-bold text-headline">{occupancyLabel}</OwnerText></OwnerCard>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  stats: { flexDirection: 'row', gap: 8 },
-  stat: { flex: 1, height: 84, padding: 14, justifyContent: 'center', gap: 4 },
-});

@@ -9,9 +9,9 @@ export default function RevenuePage() {
 
   return (
     <OwnerPage>
-      <OwnerText size={24} weight="bold" style={{ marginTop: 40, marginBottom: 4 }}>Doanh thu</OwnerText>
+      <OwnerText className="mb-1 mt-10 font-familjen-bold text-headline">Doanh thu</OwnerText>
       <RevenueChart bars={bars} />
-      <OwnerText size={20} weight="semibold" style={{ marginTop: 12 }}>Lịch sử đơn</OwnerText>
+      <OwnerText className="mt-3 font-familjen-semibold text-title">Lịch sử đơn</OwnerText>
       <RevenueFilters filters={filters} value={filter} onChange={setFilter} />
       {visibleBookings.map((booking) => <BookingHistoryCard key={booking.id} booking={booking} />)}
     </OwnerPage>

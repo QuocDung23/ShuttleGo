@@ -1,26 +1,19 @@
 import { SymbolView } from 'expo-symbols';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { OwnerText, ownerColors } from '@/components/ui/owner-ui';
 
 export function HomeHeader({ venueName, onOpenNotifications }: { venueName: string; onOpenNotifications: () => void }) {
   return (
-    <View style={styles.heading}>
-      <View style={styles.title}>
-        <OwnerText size={12} color={ownerColors.muted}>⌖  {venueName}</OwnerText>
-        <OwnerText size={28} weight="bold">Tổng quan</OwnerText>
+    <View className="min-h-[66px] flex-row items-center gap-3">
+      <View className="flex-1">
+        <OwnerText tone="muted" className="text-caption">⌖  {venueName}</OwnerText>
+        <OwnerText className="font-familjen-bold text-headline-lg">Tổng quan</OwnerText>
       </View>
-      <Pressable accessibilityLabel="Thông báo" onPress={onOpenNotifications} style={styles.bell}>
+      <Pressable accessibilityLabel="Thông báo" onPress={onOpenNotifications} className="h-12 w-12 items-center justify-center rounded-full">
         <SymbolView name={{ ios: 'bell', android: 'notifications', web: 'notifications' }} size={22} tintColor={ownerColors.ink} />
-        <View style={styles.dot} />
+        <View className="absolute right-[9px] top-[9px] h-2 w-2 rounded-full bg-error" />
       </Pressable>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  heading: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 66 },
-  title: { flex: 1 },
-  bell: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
-  dot: { position: 'absolute', top: 9, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: '#b3261e' },
-});

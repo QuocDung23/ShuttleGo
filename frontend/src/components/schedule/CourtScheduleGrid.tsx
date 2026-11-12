@@ -1,28 +1,19 @@
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
-import { OwnerText, ownerColors } from '@/components/ui/owner-ui';
+import { OwnerText } from '@/components/ui/owner-ui';
 import type { ScheduleCourt } from '@/models/schedule';
 
 export function CourtScheduleGrid({ courts, onOpenBooking }: { courts: ScheduleCourt[]; onOpenBooking: () => void }) {
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
+    <ScrollView className="flex-1" contentContainerClassName="pb-3">
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View>
-          {courts.map((court) => <View key={court.id} style={styles.row}>
-            <OwnerText size={13} weight="semibold" style={styles.court}>{court.name}</OwnerText>
-            {court.slots.map((slot) => <Pressable key={slot.hour} onPress={onOpenBooking} style={[styles.slot, slot.status === 'Chờ duyệt' && styles.pendingSlot]}><OwnerText size={14} weight="semibold" color={ownerColors.muted}>{slot.hour}</OwnerText><OwnerText size={11} weight="semibold" color={ownerColors.muted}>{slot.status}</OwnerText></Pressable>)}
+          {courts.map((court) => <View key={court.id} className="h-16 flex-row items-center gap-2 px-4">
+            <OwnerText className="w-14 font-familjen-semibold text-[13px]">{court.name}</OwnerText>
+            {court.slots.map((slot) => <Pressable key={slot.hour} onPress={onOpenBooking} className={`h-14 w-[72px] items-center justify-center gap-[3px] rounded-[14px] ${slot.status === 'Chờ duyệt' ? 'bg-slot-pending-background' : 'bg-slot-booked-background'}`}><OwnerText tone="muted" className="font-familjen-semibold">{slot.hour}</OwnerText><OwnerText tone="muted" className="font-familjen-semibold text-[11px]">{slot.status}</OwnerText></Pressable>)}
           </View>)}
         </View>
       </ScrollView>
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  scroll: { flex: 1 },
-  content: { paddingBottom: 12 },
-  row: { height: 64, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16 },
-  court: { width: 56 },
-  slot: { width: 72, height: 56, borderRadius: 14, backgroundColor: ownerColors.gray, alignItems: 'center', justifyContent: 'center', gap: 3 },
-  pendingSlot: { backgroundColor: ownerColors.blue },
-});

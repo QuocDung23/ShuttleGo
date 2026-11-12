@@ -1,6 +1,6 @@
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
-import { OwnerText, ownerColors } from '@/components/ui/owner-ui';
+import { OwnerText } from '@/components/ui/owner-ui';
 import type { AppNotification } from '@/models/notification';
 
 export function NotificationList({ notifications, unreadIds, onMarkRead }: { notifications: AppNotification[]; unreadIds: Set<string>; onMarkRead: (id: string) => void }) {
@@ -8,17 +8,8 @@ export function NotificationList({ notifications, unreadIds, onMarkRead }: { not
     <ScrollView>
       {notifications.map((notification) => {
         const unread = unreadIds.has(notification.id);
-        return <Pressable key={notification.id} onPress={() => onMarkRead(notification.id)} style={[styles.notice, { backgroundColor: unread ? '#fff' : ownerColors.page }]}><View style={styles.icon}><OwnerText size={20} color="#4a1a05">{notification.isCancellation ? '↶' : '▣'}</OwnerText></View><View style={styles.content}><View style={styles.title}><OwnerText weight="semibold" size={16}>{notification.title}</OwnerText>{unread && <View style={styles.dot} />}</View><OwnerText color={ownerColors.muted} style={styles.description}>{notification.description}</OwnerText><OwnerText size={12} color={ownerColors.muted}>{notification.ago}</OwnerText></View></Pressable>;
+        return <Pressable key={notification.id} onPress={() => onMarkRead(notification.id)} className={`min-h-[107px] flex-row gap-3 border-b border-divider p-4 ${unread ? 'bg-surface' : 'bg-background'}`}><View className="h-10 w-10 items-center justify-center rounded-full bg-primary-container"><OwnerText tone="onPrimaryContainer" className="text-title">{notification.isCancellation ? '↶' : '▣'}</OwnerText></View><View className="flex-1 gap-[3px]"><View className="flex-row items-center justify-between"><OwnerText className="font-familjen-semibold text-title-sm">{notification.title}</OwnerText>{unread && <View className="h-2 w-2 rounded-full bg-primary" />}</View><OwnerText tone="muted" className="leading-5">{notification.description}</OwnerText><OwnerText tone="muted" className="text-caption">{notification.ago}</OwnerText></View></Pressable>;
       })}
     </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  notice: { minHeight: 107, padding: 16, flexDirection: 'row', gap: 12, borderBottomWidth: 1, borderBottomColor: ownerColors.border },
-  icon: { width: 40, height: 40, borderRadius: 20, backgroundColor: ownerColors.accentSoft, alignItems: 'center', justifyContent: 'center' },
-  content: { flex: 1, gap: 3 },
-  title: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: ownerColors.accent },
-  description: { lineHeight: 20 },
-});

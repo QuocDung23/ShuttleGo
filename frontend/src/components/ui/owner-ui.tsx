@@ -2,78 +2,123 @@ import type { PropsWithChildren, ReactNode } from 'react';
 import {
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
   type TextInputProps,
-  type ViewStyle,
+  type TextProps,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { colors } from '@/shared/theme';
+
 export const ownerColors = {
-  page: '#fff8f3',
-  card: '#ffffff',
-  ink: '#231a14',
-  muted: '#5c4c42',
-  border: '#eadbd0',
-  stroke: '#8c7a6e',
-  accent: '#c2410c',
-  accentSoft: '#ffe2d1',
-  blue: '#dbeafe',
-  blueInk: '#174687',
-  green: '#e8f5eb',
-  greenInk: '#166534',
-  gray: '#e7e5e4',
+  page: colors.background,
+  card: colors.surface,
+  ink: colors.onSurface,
+  muted: colors.onSurfaceVariant,
+  border: colors.divider,
+  stroke: colors.outline,
+  accent: colors.primary,
+  accentSoft: colors.primaryContainer,
+  accentInk: colors.onPrimaryContainer,
+  onAccent: colors.onPrimary,
+  shuttle: colors.shuttle,
+  blue: colors.slotPendingBackground,
+  blueInk: colors.slotPendingForeground,
+  green: colors.slotAvailableBackground,
+  greenInk: colors.slotAvailableForeground,
+  greenOutline: colors.slotAvailableOutline,
+  gray: colors.slotBookedBackground,
+  container: colors.surfaceContainer,
+  containerLow: colors.surfaceContainerLow,
+  containerHigh: colors.surfaceContainerHigh,
+  error: colors.error,
+  scrim: colors.scrim,
 };
 
-export function OwnerPage({ children, scroll = true, style }: PropsWithChildren<{ scroll?: boolean; style?: ViewStyle }>) {
+const textToneClass = {
+  default: 'text-on-surface',
+  muted: 'text-on-surface-variant',
+  primary: 'text-primary',
+  onPrimary: 'text-on-primary',
+  onPrimaryContainer: 'text-on-primary-container',
+  pending: 'text-slot-pending-foreground',
+  available: 'text-slot-available-foreground',
+} as const;
+
+type OwnerTextTone = keyof typeof textToneClass;
+
+export function OwnerPage({ children, scroll = true }: PropsWithChildren<{ scroll?: boolean }>) {
   return (
-    <SafeAreaView edges={['top']} style={[styles.safe, style]}>
-      {scroll ? <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>{children}</ScrollView> : children}
+    <SafeAreaView edges={['top']} className="flex-1 bg-background">
+      {scroll ? (
+        <ScrollView
+          contentContainerClassName="w-full max-w-screen-sm self-center gap-3.5 px-4 pb-[22px] pt-2"
+          showsVerticalScrollIndicator={false}>
+          {children}
+        </ScrollView>
+      ) : children}
     </SafeAreaView>
   );
 }
 
-export function OwnerText({ children, size = 14, weight = 'regular', color = ownerColors.ink, style }: PropsWithChildren<{ size?: number; weight?: 'regular' | 'medium' | 'semibold' | 'bold'; color?: string; style?: object }>) {
-  return <Text style={[{ color, fontSize: size, fontWeight: weight === 'regular' ? '400' : weight === 'medium' ? '500' : weight === 'semibold' ? '600' : '700' }, styles.text, style]}>{children}</Text>;
+export function OwnerText({ className = '', tone = 'default', style, ...props }: TextProps & { className?: string; tone?: OwnerTextTone }) {
+  return (
+    <Text
+      className={`font-familjen ${textToneClass[tone]} ${className}`}
+      style={[{ includeFontPadding: false }, style]}
+      {...props}
+    />
+  );
 }
 
 export function OwnerHeader({ title, back, right, onBack }: { title: string; back?: boolean; right?: ReactNode; onBack?: () => void }) {
-  return <View style={styles.header}>{back ? <Pressable accessibilityRole="button" onPress={onBack} style={styles.headerAction}><OwnerText size={26} color={ownerColors.muted}>‹</OwnerText></Pressable> : <View style={styles.headerSpacer} />}<OwnerText size={20} weight="semibold" style={styles.headerTitle}>{title}</OwnerText><View style={styles.headerAction}>{right}</View></View>;
+  return (
+    <View className="min-h-16 flex-row items-center bg-background px-4">
+      {back ? (
+        <Pressable accessibilityRole="button" onPress={onBack} className="h-12 w-12 items-center justify-center">
+          <OwnerText tone="muted" className="text-[26px]">‹</OwnerText>
+        </Pressable>
+      ) : <View className="w-12" />}
+      <OwnerText className="flex-1 font-familjen-semibold text-title">{title}</OwnerText>
+      <View className="h-12 w-12 items-center justify-center">{right}</View>
+    </View>
+  );
 }
 
-export function OwnerCard({ children, style }: PropsWithChildren<{ style?: ViewStyle }>) {
-  return <View style={[styles.card, style]}>{children}</View>;
+export function OwnerCard({ children, className = '' }: PropsWithChildren<{ className?: string }>) {
+  return <View className={`gap-3 rounded-3xl border border-divider bg-surface p-4 ${className}`}>{children}</View>;
 }
 
-export function OwnerButton({ title, onPress, outline = false, style }: { title: string; onPress?: () => void; outline?: boolean; style?: ViewStyle }) {
-  return <Pressable accessibilityRole="button" onPress={onPress} style={[styles.button, outline ? styles.outlineButton : styles.primaryButton, style]}><OwnerText weight="semibold" color={outline ? ownerColors.accent : '#fff'}>{title}</OwnerText></Pressable>;
+export function OwnerButton({ title, onPress, outline = false, className = '' }: { title: string; onPress?: () => void; outline?: boolean; className?: string }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      className={`min-h-12 items-center justify-center rounded-full px-5 ${outline ? 'border-2 border-outline bg-surface' : 'bg-primary'} ${className}`}>
+      <OwnerText tone={outline ? 'primary' : 'onPrimary'} className="font-familjen-semibold">{title}</OwnerText>
+    </Pressable>
+  );
 }
 
 export function OwnerChip({ title, selected = false, onPress }: { title: string; selected?: boolean; onPress?: () => void }) {
-  return <Pressable onPress={onPress} style={[styles.chip, selected && styles.selectedChip]}><OwnerText size={12} weight="semibold" color={selected ? '#4a1a05' : ownerColors.ink}>{title}</OwnerText></Pressable>;
+  return (
+    <Pressable onPress={onPress} className="min-h-[34px] items-center justify-center rounded-xl bg-primary-container px-4">
+      <OwnerText tone={selected ? 'onPrimaryContainer' : 'default'} className="font-familjen-semibold text-caption">{title}</OwnerText>
+    </Pressable>
+  );
 }
 
 export function OwnerInput({ label, ...props }: TextInputProps & { label: string }) {
-  return <View style={styles.inputWrap}><OwnerText size={12} color={ownerColors.muted} style={styles.inputLabel}>{label}</OwnerText><TextInput placeholderTextColor={ownerColors.muted} style={styles.input} {...props} /></View>;
+  return (
+    <View className="min-h-14 justify-center rounded-[10px] border border-outline bg-surface px-3 pt-[7px]">
+      <OwnerText tone="muted" className="absolute -top-2 left-3 bg-background px-1 text-caption">{label}</OwnerText>
+      <TextInput
+        className="py-1 font-familjen text-[15px] text-on-surface"
+        placeholderTextColor={ownerColors.muted}
+        {...props}
+      />
+    </View>
+  );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: ownerColors.page },
-  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 22, gap: 14, width: '100%', maxWidth: 640, alignSelf: 'center' },
-  text: { fontFamily: 'System', includeFontPadding: false },
-  header: { minHeight: 64, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: ownerColors.page },
-  headerAction: { width: 48, height: 48, justifyContent: 'center', alignItems: 'center' },
-  headerSpacer: { width: 48 },
-  headerTitle: { flex: 1 },
-  card: { backgroundColor: ownerColors.card, borderColor: ownerColors.border, borderWidth: 1, borderRadius: 24, padding: 16, gap: 12 },
-  button: { minHeight: 48, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
-  primaryButton: { backgroundColor: ownerColors.accent },
-  outlineButton: { backgroundColor: ownerColors.card, borderWidth: 2, borderColor: ownerColors.stroke },
-  chip: { minHeight: 34, borderRadius: 12, backgroundColor: ownerColors.accentSoft, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  selectedChip: { backgroundColor: ownerColors.accent },
-  inputWrap: { borderWidth: 1, borderColor: ownerColors.stroke, borderRadius: 10, backgroundColor: ownerColors.card, paddingHorizontal: 12, paddingTop: 7, minHeight: 56, justifyContent: 'center' },
-  inputLabel: { position: 'absolute', top: -8, left: 12, backgroundColor: ownerColors.page, paddingHorizontal: 4 },
-  input: { color: ownerColors.ink, fontSize: 15, paddingVertical: 4 },
-});
