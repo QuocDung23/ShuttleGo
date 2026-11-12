@@ -1,6 +1,8 @@
 # ShuttleGo Backend
 
-REST API CRUD cho ShuttleGo — **Express 5 + TypeORM 1.x + PostgreSQL**, viết bằng TypeScript (ESM), validate bằng **zod**.
+Ứng dụng **Express.js theo kiến trúc MVC** cho ShuttleGo — Express 5 + TypeORM 1.x +
+PostgreSQL, viết bằng TypeScript (ESM), validate bằng **zod**. Vì client là ứng dụng
+Expo/React Native, tầng View trình bày dữ liệu dưới dạng JSON thay vì render HTML.
 
 ## Chạy local
 
@@ -11,6 +13,13 @@ docker compose up -d          # Postgres 17 ở localhost:5433 (user/pass/db: sh
 npm install
 npm run dev                   # http://localhost:3000/api — tự chạy migration khi khởi động
 ```
+
+Swagger UI: [`http://localhost:3000/api/docs`](http://localhost:3000/api/docs)
+
+OpenAPI JSON: [`http://localhost:3000/api/docs/openapi.json`](http://localhost:3000/api/docs/openapi.json)
+
+Trong Swagger UI, bấm **Authorize** và nhập JWT lấy từ `POST /auth/login`. Swagger tự
+thêm tiền tố `Bearer` vào header cho các endpoint được bảo vệ.
 
 | Script | Mô tả |
 | --- | --- |
@@ -28,19 +37,35 @@ npm run dev                   # http://localhost:3000/api — tự chạy migrat
 ```
 src/
 ├── index.ts                 # khởi động server + chạy migration
-├── app.ts                   # express app, mount routers
+├── app.ts                   # express app, chỉ mount routers/middleware
 ├── config/env.ts            # load .env
 ├── database/
 │   ├── data-source.ts       # TypeORM DataSource (app + CLI dùng chung)
 │   ├── snake-naming.strategy.ts   # camelCase (JSON) <-> snake_case (DB)
 │   └── migrations/
-├── common/                  # enums, lỗi HTTP, error handler, helper validate/phân trang
+├── common/                  # enums, lỗi HTTP, middleware, helper validate/phân trang
+├── docs/                    # OpenAPI document, shared schema/helper
+├── views/
+│   └── json.view.ts         # View: presenter JSON + HTTP status
 └── modules/<tên>/
-    ├── <tên>.entity.ts      # TypeORM entity
+    ├── <tên>.entity.ts      # Model: TypeORM entity
     ├── <tên>.schema.ts      # zod schema cho body/query
-    ├── <tên>.service.ts     # logic + truy vấn DB
-    └── <tên>.routes.ts      # express router
+    ├── <tên>.service.ts     # Model/service: nghiệp vụ + truy vấn DB
+    ├── <tên>.controller.ts  # Controller: nhận request, gọi model, chọn view
+    ├── <tên>.routes.ts      # Route: chỉ map URL/middleware sang controller
+    └── <tên>.openapi.ts     # Swagger/OpenAPI paths của module
 ```
+
+Luồng xử lý MVC:
+
+```text
+Request → Route → Controller → Model (entity/service) → Controller → JSON View → Response
+```
+
+- **Model** không biết `Request`/`Response`.
+- **Controller** parse input và điều phối nghiệp vụ.
+- **View** chịu trách nhiệm biểu diễn response cho mobile client.
+- **Route** không chứa truy vấn dữ liệu hay logic nghiệp vụ.
 
 ## Quy ước API
 

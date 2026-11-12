@@ -3,7 +3,7 @@
 Monorepo gồm:
 
 - [`frontend/`](frontend/) — ứng dụng mobile (Expo / React Native)
-- [`backend/`](backend/) — REST API (Express + TypeORM + PostgreSQL), xem [backend/README.md](backend/README.md)
+- [`backend/`](backend/) — Express.js MVC (JSON View + TypeORM + PostgreSQL), xem [backend/README.md](backend/README.md)
 
 ## Chạy frontend
 

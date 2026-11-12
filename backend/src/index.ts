@@ -12,6 +12,7 @@ if (process.env.DB_MIGRATIONS_RUN !== 'false') {
 
 const server = app.listen(PORT, () => {
   console.log(`ShuttleGo API listening on http://localhost:${PORT}/api`);
+  console.log(`Swagger UI available at http://localhost:${PORT}/api/docs`);
 });
 
 const shutdown = () => {
