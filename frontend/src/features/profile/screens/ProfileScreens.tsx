@@ -1,21 +1,22 @@
 import { useState, type ReactNode } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 
 import { OwnerButton, OwnerCard, OwnerChip, OwnerHeader, OwnerInput, OwnerPage, OwnerText, ownerColors } from '@/shared/components/owner-ui';
 
 export function AccountScreen() {
   const router = useRouter();
   const menu = [
-    ['▧', 'Thông tin sân', '/venue-info'],
-    ['◷', 'Giá theo khung giờ', '/pricing'],
-    ['◷', 'Giờ mở cửa', '/hours'],
-    ['♧', 'Thông báo', '/notifications'],
+    [{ios:'building.2',android:'sports_tennis',web:'sports_tennis'}, 'Thông tin sân', '/venue-info'],
+    [{ios:'tag',android:'sell',web:'sell'}, 'Giá theo khung giờ', '/pricing'],
+    [{ios:'clock',android:'schedule',web:'schedule'}, 'Giờ mở cửa', '/hours'],
+    [{ios:'bell',android:'notifications',web:'notifications'}, 'Thông báo', '/notifications'],
   ] as const;
   return <OwnerPage>
     <OwnerText size={24} weight="bold" style={{ marginTop: 40, marginBottom: 6 }}>Tài khoản</OwnerText>
     <View style={styles.profile}><View style={styles.avatar}><OwnerText size={20} weight="semibold" color="#4a1a05">HL</OwnerText></View><View><OwnerText size={16} weight="semibold">Hoàng Lan</OwnerText><OwnerText color={ownerColors.muted}>Chủ sân · Sân cầu lông Kỳ Hòa</OwnerText></View></View>
-    <OwnerCard style={{ paddingVertical: 4, gap: 0 }}>{menu.map(([icon,title,path]) => <Pressable key={title} onPress={() => router.push(path)} style={styles.menuRow}><OwnerText size={22} color={ownerColors.muted}>{icon}</OwnerText><OwnerText size={16} style={{ flex: 1 }}>{title}</OwnerText><OwnerText size={20} color={ownerColors.muted}>›</OwnerText></Pressable>)}</OwnerCard>
+    <OwnerCard style={{ paddingVertical: 4, gap: 0 }}>{menu.map(([icon,title,path]) => <Pressable key={title} onPress={() => router.push(path)} style={styles.menuRow}><SymbolView name={icon} size={22} tintColor={ownerColors.muted} /><OwnerText size={16} style={{ flex: 1 }}>{title}</OwnerText><OwnerText size={20} color={ownerColors.muted}>›</OwnerText></Pressable>)}</OwnerCard>
     <OwnerButton title="Đăng xuất" outline onPress={() => Alert.alert('Đăng xuất', 'Bạn đã đăng xuất.')} style={{ marginTop: 10 }} />
   </OwnerPage>;
 }

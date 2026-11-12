@@ -1,4 +1,6 @@
 import { useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { OwnerButton, OwnerCard, OwnerPage, OwnerText, ownerColors } from '@/shared/components/owner-ui';
@@ -11,6 +13,7 @@ const orders = [
 
 export default function HomeScreen() {
   const router = useRouter();
+  const [pending, setPending] = useState(orders);
   return (
     <OwnerPage>
       <View style={styles.heading}>
@@ -18,17 +21,17 @@ export default function HomeScreen() {
           <OwnerText size={12} color={ownerColors.muted}>⌖  Sân cầu lông Kỳ Hòa</OwnerText>
           <OwnerText size={28} weight="bold">Tổng quan</OwnerText>
         </View>
-        <Pressable accessibilityLabel="Thông báo" onPress={() => router.push('/notifications')} style={styles.bell}><OwnerText size={22}>♧</OwnerText><View style={styles.dot} /></Pressable>
+        <Pressable accessibilityLabel="Thông báo" onPress={() => router.push('/notifications')} style={styles.bell}><SymbolView name={{ios:'bell',android:'notifications',web:'notifications'}} size={22} tintColor={ownerColors.ink} /><View style={styles.dot} /></Pressable>
       </View>
       <View style={styles.stats}>
-        <OwnerCard style={styles.stat}><OwnerText size={12} color={ownerColors.muted}>Đơn chờ duyệt</OwnerText><OwnerText size={24} weight="bold">3</OwnerText></OwnerCard>
+        <OwnerCard style={styles.stat}><OwnerText size={12} color={ownerColors.muted}>Đơn chờ duyệt</OwnerText><OwnerText size={24} weight="bold">{pending.length}</OwnerText></OwnerCard>
         <OwnerCard style={styles.stat}><OwnerText size={12} color={ownerColors.muted}>Hôm nay đã kín</OwnerText><OwnerText size={24} weight="bold">49/96 giờ</OwnerText></OwnerCard>
       </View>
       <OwnerText size={20} weight="semibold">Đơn chờ duyệt</OwnerText>
-      {orders.map(([name, time, details]) => <OwnerCard key={name}>
+      {pending.map(([name, time, details]) => <OwnerCard key={name}>
         <View style={styles.orderHead}><OwnerText weight="semibold">{name}</OwnerText><View style={styles.status}><OwnerText size={12} weight="semibold" color={ownerColors.blueInk}>Chờ duyệt</OwnerText></View></View>
         <View style={styles.orderInfo}><OwnerText color={ownerColors.muted}>{time}</OwnerText><OwnerText color={ownerColors.muted}>{details}</OwnerText></View>
-        <View style={styles.actions}><OwnerButton title="Từ chối" outline style={styles.action} /><OwnerButton title="Duyệt" style={styles.action} /></View>
+        <View style={styles.actions}><OwnerButton title="Từ chối" outline style={styles.action} onPress={() => setPending(current => current.filter(order => order[0] !== name))} /><OwnerButton title="Duyệt" style={styles.action} onPress={() => setPending(current => current.filter(order => order[0] !== name))} /></View>
       </OwnerCard>)}
     </OwnerPage>
   );
