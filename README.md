@@ -12,3 +12,7 @@ cd frontend
 npm install
 npx expo start
 ```
+
+## Chạy backend
+
+Xem [`backend/README.md`](backend/README.md).
