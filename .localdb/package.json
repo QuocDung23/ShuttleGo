@@ -1,0 +1,7 @@
+{
+  "name": "shuttlego-localdb",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node start-db.mjs" },
+  "dependencies": { "embedded-postgres": "^17.5.0-beta.15" }
+}

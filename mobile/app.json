@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "ShuttleGO",
+    "slug": "shuttlego",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": { "package": "vn.shuttlego.app" },
+    "ios": { "bundleIdentifier": "vn.shuttlego.app" },
+    "plugins": ["expo-secure-store", "expo-notifications", ["expo-location", { "locationWhenInUsePermission": "ShuttleGO dùng vị trí để tìm sân gần bạn." }]],
+    "extra": { "apiUrl": "http://10.103.9.48:4000/api" }
+  }
+}

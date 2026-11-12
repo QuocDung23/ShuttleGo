@@ -1,0 +1,91 @@
+erDiagram
+  USERS ||--o{ VENUES : "sở hữu"
+  USERS ||--o{ BOOKINGS : "đặt"
+  USERS ||--o{ REVIEWS : "viết"
+  USERS ||--o{ NOTIFICATIONS : "nhận"
+  USERS ||--o{ DEVICE_TOKENS : "có"
+  VENUES ||--o{ COURTS : "gồm"
+  VENUES ||--o{ VENUE_IMAGES : "có ảnh"
+  VENUES ||--o{ PRICE_RULES : "có bảng giá"
+  VENUES ||--o{ BOOKINGS : "nhận đơn"
+  VENUES ||--o{ REVIEWS : "được đánh giá"
+  VENUES ||--o{ VENUE_AMENITIES : ""
+  AMENITIES ||--o{ VENUE_AMENITIES : ""
+  BOOKINGS ||--|{ BOOKING_SLOTS : "gồm"
+  COURTS ||--o{ BOOKING_SLOTS : "được giữ"
+  BOOKINGS ||--o| PAYMENTS : "thanh toán"
+  BOOKINGS ||--o| REVIEWS : "được đánh giá"
+  BOOKINGS ||--o{ NOTIFICATIONS : "phát sinh"
+
+  USERS { uuid id PK
+    string full_name
+    string email UK
+    string phone
+    string password_hash
+    enum role "PLAYER | OWNER" }
+  VENUES { uuid id PK
+    uuid owner_id FK
+    string name
+    string address
+    string district
+    double latitude
+    double longitude
+    time open_time
+    time close_time
+    bool is_active }
+  COURTS { uuid id PK
+    uuid venue_id FK
+    string name
+    bool is_active }
+  VENUE_IMAGES { uuid id PK
+    uuid venue_id FK
+    string url
+    int sort_order }
+  AMENITIES { int id PK
+    string code UK
+    string name }
+  VENUE_AMENITIES { uuid venue_id PK,FK
+    int amenity_id PK,FK }
+  PRICE_RULES { uuid id PK
+    uuid venue_id FK
+    enum day_type
+    time start_time
+    time end_time
+    int price_per_slot }
+  BOOKINGS { uuid id PK
+    string code UK
+    uuid user_id FK
+    uuid venue_id FK
+    date play_date
+    enum status "PENDING|CONFIRMED|REJECTED|CANCELLED|COMPLETED"
+    int total_amount
+    string reject_reason }
+  BOOKING_SLOTS { uuid id PK
+    uuid booking_id FK
+    uuid court_id FK
+    date play_date
+    time start_time
+    time end_time
+    int price
+    bool is_active "UNIQUE court+date+start WHERE active" }
+  PAYMENTS { uuid id PK
+    uuid booking_id FK,UK
+    enum method
+    int amount
+    enum status "UNPAID|PAID|REFUNDED"
+    datetime paid_at }
+  REVIEWS { uuid id PK
+    uuid user_id FK
+    uuid venue_id FK
+    uuid booking_id FK,UK
+    int rating
+    string comment }
+  NOTIFICATIONS { uuid id PK
+    uuid user_id FK
+    uuid booking_id FK
+    string type
+    string title
+    bool is_read }
+  DEVICE_TOKENS { uuid id PK
+    uuid user_id FK
+    string token UK }

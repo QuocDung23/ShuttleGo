@@ -1,0 +1,15 @@
+flowchart LR
+  subgraph APP["📱 App ShuttleGO (React Native + Expo) — MVVM"]
+    V["VIEW<br/>screens/*.tsx<br/>components/ui.tsx"] -->|"gọi hàm, đọc state"| VM["VIEWMODEL<br/>viewmodels/use*ViewModel.ts<br/>store/ (Zustand)"]
+    VM -->|"gọi"| SV["SERVICE / REPOSITORY<br/>services/*Service.ts (Axios)"]
+    SV -.->|"kiểu dữ liệu"| M["MODEL<br/>models/index.ts"]
+    VM -.-> M
+    VM --> LS[("Lưu cục bộ<br/>SecureStore: JWT")]
+  end
+  SV <-->|"REST JSON + JWT"| R
+  subgraph API["🖥️ Backend Node.js (Express)"]
+    R["routes/*Routes.ts<br/>(Controller + validate Zod)"] --> S["services/*Service.ts<br/>(nghiệp vụ, SQL)"]
+    S --> DB[("PostgreSQL<br/>UNIQUE chống trùng slot")]
+    S --> PUSH["Expo Push / FCM"]
+  end
+  PUSH -.->|"thông báo đẩy"| APP
