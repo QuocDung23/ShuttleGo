@@ -1,24 +1,36 @@
 import cors from 'cors';
 import express from 'express';
-import authRoutes from './routes/authRoutes';
-import bookingRoutes from './routes/bookingRoutes';
-import { courtRoutes, priceRoutes } from './routes/courtRoutes';
-import { amenityRoutes, notificationRoutes, reviewRoutes } from './routes/miscRoutes';
-import venueRoutes from './routes/venueRoutes';
-import { errorHandler } from './utils/http';
+import { errorHandler, notFoundHandler } from './common/error-handler.js';
+import { amenitiesRouter } from './modules/amenities/amenities.routes.js';
+import { bookingsRouter } from './modules/bookings/bookings.routes.js';
+import { courtsRouter } from './modules/courts/courts.routes.js';
+import { favoritesRouter } from './modules/favorites/favorites.routes.js';
+import { notificationsRouter } from './modules/notifications/notifications.routes.js';
+import { priceRulesRouter } from './modules/price-rules/price-rules.routes.js';
+import { reportsRouter } from './modules/reports/reports.routes.js';
+import { usersRouter } from './modules/users/users.routes.js';
+import { venuesRouter } from './modules/venues/venues.routes.js';
 
 export const app = express();
-app.use(cors());
-app.use(express.json());
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
-app.use('/api/auth', authRoutes);
-app.use('/api/amenities', amenityRoutes);
-app.use('/api/venues', venueRoutes);
-app.use('/api/courts', courtRoutes);
-app.use('/api/price-rules', priceRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use((_req, res) => res.status(404).json({ message: 'Không tìm thấy API' }));
+app.use(cors());
+app.use(express.json({ limit: '1mb' }));
+
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
+
+const api = express.Router();
+api.use('/users', usersRouter);
+api.use('/amenities', amenitiesRouter);
+api.use('/venues', venuesRouter); // + /venues/:id/amenities, /venues/:id/operating-hours
+api.use('/courts', courtsRouter);
+api.use('/price-rules', priceRulesRouter);
+api.use('/favorites', favoritesRouter);
+api.use('/bookings', bookingsRouter);
+api.use('/notifications', notificationsRouter);
+api.use('/reports', reportsRouter);
+app.use('/api', api);
+
+app.use(notFoundHandler);
 app.use(errorHandler);

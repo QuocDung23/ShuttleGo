@@ -3,7 +3,7 @@
 Monorepo gồm:
 
 - [`frontend/`](frontend/) — ứng dụng mobile (Expo / React Native)
-- [`backend/`](backend/) — backend service
+- [`backend/`](backend/) — REST API (Express + TypeORM + PostgreSQL), xem [backend/README.md](backend/README.md)
 
 ## Chạy frontend
 
@@ -15,4 +15,12 @@ npx expo start
 
 ## Chạy backend
 
-Xem [`backend/README.md`](backend/README.md).
+```bash
+cd backend
+cp .env.example .env
+docker compose up -d
+npm install
+npm run dev
+```
+
+Xem chi tiết ở [`backend/README.md`](backend/README.md).

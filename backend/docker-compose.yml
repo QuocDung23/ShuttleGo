@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: shuttlego-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: shuttlego
+      POSTGRES_PASSWORD: shuttlego
+      POSTGRES_DB: shuttlego
+    ports:
+      - '5433:5432'
+    volumes:
+      - shuttlego-pgdata:/var/lib/postgresql/data
+
+volumes:
+  shuttlego-pgdata:
