@@ -6,7 +6,7 @@ export type ScheduleDate = {
 export type ScheduleCourt = {
   id: number;
   name: string;
-  slots: { hour: string; status: 'Chờ duyệt' | 'Đã đặt' }[];
+  slots: { hour: string; status: "Chờ duyệt" | "Đã đặt" }[];
 };
 
 export type BookingDetail = {

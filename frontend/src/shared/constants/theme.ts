@@ -3,9 +3,9 @@
  * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://unistyl.es/), etc.
  */
 
-import { Platform } from 'react-native';
+import { Platform } from "react-native";
 
-import { colors, fontFamilies } from '@/shared/theme';
+import { colors, fontFamilies } from "@/shared/theme";
 
 export const Colors = {
   light: colors,
@@ -18,23 +18,23 @@ export const Fonts = Platform.select({
   ios: {
     sans: fontFamilies.regular,
     /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
+    serif: "ui-serif",
     /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
+    rounded: "ui-rounded",
     /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+    mono: "ui-monospace",
   },
   default: {
     sans: fontFamilies.regular,
-    serif: 'serif',
+    serif: "serif",
     rounded: fontFamilies.regular,
-    mono: 'monospace',
+    mono: "monospace",
   },
   web: {
     sans: fontFamilies.regular,
-    serif: 'var(--font-serif)',
-    rounded: 'var(--font-rounded)',
-    mono: 'var(--font-mono)',
+    serif: "var(--font-serif)",
+    rounded: "var(--font-rounded)",
+    mono: "var(--font-mono)",
   },
 });
 

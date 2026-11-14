@@ -91,13 +91,15 @@ export function OwnerCard({ children, className = '' }: PropsWithChildren<{ clas
   return <View className={`gap-3 rounded-3xl border border-divider bg-surface p-4 ${className}`}>{children}</View>;
 }
 
-export function OwnerButton({ title, onPress, outline = false, className = '' }: { title: string; onPress?: () => void; outline?: boolean; className?: string }) {
+export function OwnerButton({ title, onPress, outline = false, disabled = false, className = '' }: { title: string; onPress?: () => void; outline?: boolean; disabled?: boolean; className?: string }) {
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
-      className={`min-h-12 items-center justify-center rounded-full px-5 ${outline ? 'border-2 border-outline bg-surface' : 'bg-primary'} ${className}`}>
-      <OwnerText tone={outline ? 'primary' : 'onPrimary'} className="font-familjen-semibold">{title}</OwnerText>
+      className={`min-h-12 items-center justify-center rounded-full px-5 ${disabled ? 'bg-slot-booked-background' : outline ? 'border-2 border-outline bg-surface' : 'bg-primary'} ${className}`}>
+      <OwnerText tone={disabled ? 'muted' : outline ? 'primary' : 'onPrimary'} className="font-familjen-semibold">{title}</OwnerText>
     </Pressable>
   );
 }

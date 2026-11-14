@@ -6,5 +6,5 @@ export type PendingBooking = {
 };
 
 export type BookingHistoryItem = PendingBooking & {
-  status: 'Chờ duyệt' | 'Đã xác nhận' | 'Hoàn tất';
+  status: "Chờ duyệt" | "Đã xác nhận" | "Hoàn tất";
 };
