@@ -33,7 +33,7 @@ export default function BookingPaymentPage() {
         </View>
         <OwnerButton
           title="Tôi đã chuyển khoản"
-          onPress={() => router.replace("./success")}
+          onPress={() => router.replace("/(guest)/booking/success")}
         />
       </View>
     </SafeAreaView>

@@ -1,4 +1,5 @@
-import { Alert } from "react-native";
+import { logoutMockAccount } from "@/features/auth/mockSession";
+import { useRouter } from "expo-router";
 
 const menu = [
   {
@@ -24,6 +25,8 @@ const menu = [
 ] as const;
 
 export function useAccountViewModel() {
+  const router = useRouter();
+
   return {
     profile: {
       initials: "HL",
@@ -31,6 +34,9 @@ export function useAccountViewModel() {
       description: "Chủ sân · Sân cầu lông Kỳ Hòa",
     },
     menu,
-    logout: () => Alert.alert("Đăng xuất", "Bạn đã đăng xuất."),
+    logout: () => {
+      logoutMockAccount();
+      router.replace("/login");
+    },
   };
 }

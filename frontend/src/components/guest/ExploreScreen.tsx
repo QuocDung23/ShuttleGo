@@ -7,10 +7,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GuestTabBar } from "@/components/guest/GuestTabBar";
 import { OwnerText } from "@/components/ui/owner-ui";
+import { mockCourts } from "@/features/guest/mockCourts";
 import { colors } from "@/shared/theme";
 
-const courtImage =
-  "https://images.unsplash.com/photo-1775993167393-f2add1f8eec2?auto=format&fit=crop&w=1200&q=80";
 const filters: { label: string; icon: SymbolViewProps["name"] }[] = [
   {
     label: "Gần tôi",
@@ -146,22 +145,19 @@ export function ExploreScreen() {
               Sân gần bạn
             </OwnerText>
             <OwnerText className="text-caption text-guest-on-surface-variant">
-              4 sân
+              {mockCourts.length} sân
             </OwnerText>
           </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => router.push("./booking")}
-          >
-            <VenueCard />
-          </Pressable>
-          <View className="h-[190px] overflow-hidden rounded-[24px] border border-guest-outline">
-            <Image
-              source={courtImage}
-              contentFit="cover"
-              style={{ width: "100%", height: "100%" }}
-            />
-          </View>
+          {mockCourts.map((court) => (
+            <Pressable
+              key={court.id}
+              accessibilityRole="button"
+              accessibilityLabel={`Đặt sân ${court.name}`}
+              onPress={() => router.push("./booking")}
+            >
+              <VenueCard court={court} />
+            </Pressable>
+          ))}
         </View>
       </ScrollView>
 
@@ -170,28 +166,28 @@ export function ExploreScreen() {
   );
 }
 
-function VenueCard() {
+function VenueCard({ court }: { court: (typeof mockCourts)[number] }) {
   return (
     <View className="overflow-hidden rounded-[24px] border border-guest-outline bg-guest-surface">
       <Image
-        source={courtImage}
+        source={court.image}
         contentFit="cover"
         style={{ width: "100%", height: 126 }}
       />
       <View className="gap-2 px-3.5 pb-3.5 pt-3">
         <OwnerText className="font-familjen-bold text-title text-guest-on-surface">
-          Sân cầu lông Kỳ Hòa
+          {court.name}
         </OwnerText>
         <OwnerText className="text-body text-guest-on-surface-variant">
-          Quận 10 · cách bạn 0,8 km
+          {court.distance}
         </OwnerText>
         <View className="mt-1 flex-row items-center justify-between gap-3">
           <OwnerText className="font-familjen-semibold text-label text-guest-on-surface">
-            Từ 80.000đ / giờ
+            Từ {court.priceFrom} / giờ
           </OwnerText>
           <View className="rounded-full bg-guest-selected px-3 py-1.5">
             <OwnerText className="font-familjen-semibold text-caption text-guest-selected-ink">
-              6 sân trống
+              {court.availableCourts} sân trống
             </OwnerText>
           </View>
         </View>

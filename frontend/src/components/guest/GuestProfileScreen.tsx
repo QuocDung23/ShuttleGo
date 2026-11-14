@@ -5,10 +5,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GuestTabBar } from "@/components/guest/GuestTabBar";
 import { OwnerButton, OwnerText } from "@/components/ui/owner-ui";
+import { getMockAccount, logoutMockAccount } from "@/features/auth/mockSession";
 import { colors } from "@/shared/theme";
 
 export function GuestProfileScreen() {
   const router = useRouter();
+  const account = getMockAccount();
+  const isPlayer = account?.role === "player";
 
   return (
     <SafeAreaView
@@ -33,22 +36,37 @@ export function GuestProfileScreen() {
           </View>
           <View className="items-center gap-1">
             <OwnerText className="font-familjen-semibold text-title text-guest-on-surface">
-              Chào mừng bạn
+              {isPlayer ? account.name : "Chào mừng bạn"}
             </OwnerText>
             <OwnerText className="text-center text-body text-guest-on-surface-variant">
-              Đăng nhập hoặc tạo tài khoản để quản lý lịch đặt sân.
+              {isPlayer
+                ? `Đã đăng nhập · ${account.phone}`
+                : "Đăng nhập hoặc tạo tài khoản để quản lý lịch đặt sân."}
             </OwnerText>
           </View>
           <View className="mt-2 w-full gap-3">
-            <OwnerButton
-              title="Đăng nhập"
-              onPress={() => router.push("/login")}
-            />
-            <OwnerButton
-              title="Tạo tài khoản"
-              outline
-              onPress={() => router.push("/register")}
-            />
+            {isPlayer ? (
+              <OwnerButton
+                title="Đăng xuất"
+                outline
+                onPress={() => {
+                  logoutMockAccount();
+                  router.replace("/login");
+                }}
+              />
+            ) : (
+              <>
+                <OwnerButton
+                  title="Đăng nhập"
+                  onPress={() => router.push("/login")}
+                />
+                <OwnerButton
+                  title="Tạo tài khoản"
+                  outline
+                  onPress={() => router.push("/register")}
+                />
+              </>
+            )}
           </View>
         </View>
       </View>

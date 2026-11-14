@@ -5,10 +5,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GuestTabBar } from "@/components/guest/GuestTabBar";
 import { OwnerButton, OwnerText } from "@/components/ui/owner-ui";
+import { getMockAccount } from "@/features/auth/mockSession";
 import { colors } from "@/shared/theme";
 
 export function GuestBookingsScreen() {
   const router = useRouter();
+  const isPlayer = getMockAccount()?.role === "player";
 
   return (
     <SafeAreaView
@@ -39,7 +41,9 @@ export function GuestBookingsScreen() {
               Chưa có lịch đặt nào
             </OwnerText>
             <OwnerText className="max-w-[300px] text-center text-body text-guest-on-surface-variant">
-              Các lượt đặt sân của bạn sẽ hiển thị ở đây sau khi xác nhận.
+              {isPlayer
+                ? "Các lượt đặt sân của bạn sẽ hiển thị ở đây sau khi xác nhận."
+                : "Đăng nhập để quản lý và xem các lượt đặt sân của bạn."}
             </OwnerText>
           </View>
           <View className="mt-2 w-full max-w-[320px] gap-3">
@@ -47,15 +51,17 @@ export function GuestBookingsScreen() {
               title="Khám phá sân"
               onPress={() => router.replace("/explore")}
             />
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => router.push("/login")}
-              className="min-h-11 items-center justify-center"
-            >
-              <OwnerText tone="primary" className="font-familjen-semibold">
-                Đăng nhập để xem lịch đặt
-              </OwnerText>
-            </Pressable>
+            {!isPlayer ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push("/login")}
+                className="min-h-11 items-center justify-center"
+              >
+                <OwnerText tone="primary" className="font-familjen-semibold">
+                  Đăng nhập để xem lịch đặt
+                </OwnerText>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </ScrollView>

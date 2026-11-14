@@ -55,9 +55,7 @@ export function GuestTabBar({ active }: { active: GuestTab }) {
                 name={tab.icon}
                 size={21}
                 tintColor={
-                  selected
-                    ? colors.guestSelectedInk
-                    : colors.guestOnSurfaceVariant
+                  selected ? colors.guestSelectedInk : colors.guestOnSurfaceVariant
                 }
               />
             </View>
