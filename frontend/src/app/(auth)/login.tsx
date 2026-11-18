@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, View } from 'react-native';
 
@@ -9,8 +9,25 @@ import { ApiError } from '@/data/api/client';
 import { useAuth } from '@/features/auth/AuthContext';
 import { normalizePhone } from '@/models/auth';
 
+/**
+ * Only an internal booking route is allowed as a post-login return path.
+ * Anything else (external URLs, other screens, injected query strings) is
+ * ignored so a signed-in player always lands somewhere safe.
+ */
+function resolveBookingRedirect(value: string | string[] | undefined) {
+  if (typeof value !== 'string') return null;
+  const match = value.match(/^\/\(guest\)\/booking(?:\?venueId=(\d+))?$/);
+  if (!match) return null;
+  const venueId = match[1];
+  return {
+    pathname: '/(guest)/booking' as const,
+    ...(venueId ? { params: { venueId } } : {}),
+  };
+}
+
 export default function LoginPage() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ redirect?: string }>();
   const { login } = useAuth();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -28,10 +45,11 @@ export default function LoginPage() {
     setError('');
     try {
       const user = await login({ phone: normalizedPhone, password });
+      const bookingRedirect = resolveBookingRedirect(params.redirect);
       if (user.role === 'admin') {
         router.replace('/admin/courts');
       } else if (user.role === 'player') {
-        router.replace('/(guest)/explore');
+        router.replace(bookingRedirect ?? '/(guest)/explore');
       } else {
         // Owner: let root/index resolve venue approval gate.
         router.replace('/');

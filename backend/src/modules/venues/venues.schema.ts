@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { VenueStatus } from '@/common/enums.js';
-import { idParam, pagination, timeString } from '@/common/validation.js';
+import { dateString, idParam, pagination, timeString } from '@/common/validation.js';
 
 const amenityIds = z
   .array(idParam)
@@ -51,6 +51,8 @@ export const reviewVenueSchema = z.object({
 });
 
 export const setAmenitiesSchema = z.object({ amenityIds });
+
+export const availabilityQuerySchema = z.object({ date: dateString });
 
 export const queryVenuesSchema = z.object({
   ...pagination,

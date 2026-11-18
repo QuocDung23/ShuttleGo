@@ -4,6 +4,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect, type PropsWithChildren } from "react";
 
 import { AuthProvider } from "@/features/auth/AuthContext";
+import { PendingBookingCountProvider } from "@/features/home/PendingBookingCountContext";
 import { colors, fontAssets } from "@/shared/theme";
 
 void SplashScreen.preventAutoHideAsync();
@@ -32,7 +33,9 @@ export function AppProviders({ children }: PropsWithChildren) {
 
   return (
     <ThemeProvider value={navigationTheme}>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <PendingBookingCountProvider>{children}</PendingBookingCountProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

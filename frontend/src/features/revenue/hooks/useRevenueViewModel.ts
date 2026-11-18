@@ -11,7 +11,6 @@ const filters: RevenueFilter[] = [
   "Tất cả",
   "Chờ duyệt",
   "Đã xác nhận",
-  "Hoàn tất",
   "Đã hủy",
 ];
 

@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, View } from "react-native";
 
 import { OwnerText } from "@/components/ui/owner-ui";
+import { ScheduleLegend } from "@/components/schedule/ScheduleLegend";
 import type { ScheduleCourt } from "@/models/schedule";
 
 export function CourtScheduleGrid({
@@ -11,7 +12,7 @@ export function CourtScheduleGrid({
   onOpenBooking: (bookingId: number) => void;
 }) {
   return (
-    <ScrollView className="flex-1" contentContainerClassName="pb-3">
+    <ScrollView className="flex-1" contentContainerClassName="gap-2 pb-3">
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View>
           {courts.map((court) => (
@@ -59,6 +60,7 @@ export function CourtScheduleGrid({
           ))}
         </View>
       </ScrollView>
+      <ScheduleLegend />
     </ScrollView>
   );
 }

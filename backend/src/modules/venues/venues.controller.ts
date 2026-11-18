@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { parseId } from '@/common/validation.js';
 import {
+  availabilityQuerySchema,
   createVenueSchema,
   queryVenuesSchema,
   reviewVenueSchema,
@@ -16,6 +17,13 @@ export async function index(req: Request, res: Response) {
 
 export async function show(req: Request, res: Response) {
   renderOk(res, await service.findOne(parseId(req.params.id)));
+}
+
+/** Public slot availability; only approved venues are served. */
+export async function availability(req: Request, res: Response) {
+  const venueId = parseId(req.params.venueId, 'venueId');
+  const { date } = availabilityQuerySchema.parse(req.query);
+  renderOk(res, await service.getAvailability(venueId, date));
 }
 
 export async function create(req: Request, res: Response) {

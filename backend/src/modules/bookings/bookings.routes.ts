@@ -10,6 +10,7 @@ bookingsRouter.use(authenticate);
 bookingsRouter.use(requireApprovedOwnerVenue);
 
 bookingsRouter.get('/', controller.index);
+bookingsRouter.post('/:id/cancel', controller.cancelPendingCheckout);
 bookingsRouter.get('/:id', controller.show);
 bookingsRouter.post('/', controller.create);
 

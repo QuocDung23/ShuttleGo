@@ -39,6 +39,11 @@ export const updateBookingSchema = createBookingSchema
   })
   .partial();
 
+/** The only PATCH body a player may send; extra fields are rejected. */
+export const claimPaymentSchema = z
+  .object({ paymentStatus: z.literal(PaymentStatus.PENDING_VERIFICATION) })
+  .strict();
+
 export const queryBookingsSchema = z.object({
   ...pagination,
   courtId: queryId,

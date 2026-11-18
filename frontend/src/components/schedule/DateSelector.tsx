@@ -15,6 +15,7 @@ export function DateSelector({
   return (
     <ScrollView
       horizontal
+      className="h-[72px] flex-grow-0 shrink-0"
       showsHorizontalScrollIndicator={false}
       contentContainerClassName="gap-2 px-4 pb-4"
     >

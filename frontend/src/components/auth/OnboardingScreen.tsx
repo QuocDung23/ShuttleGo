@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OnboardingVisual } from '@/components/auth/OnboardingVisual';
 import { colors, fontFamilies } from '@/shared/theme';
 
+const BRAND_ORANGE = '#FF6400';
+
 const PAGES = [
   {
     title: 'Tìm sân gần bạn',
@@ -62,6 +64,7 @@ export function OnboardingScreen({
           width: '100%',
           maxWidth: 480,
           alignSelf: 'center',
+          justifyContent: 'space-between',
         }}
       >
         {/* Top App Bar */}
@@ -71,15 +74,15 @@ export function OnboardingScreen({
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            paddingLeft: 16,
-            paddingRight: 8,
+            paddingLeft: 20,
+            paddingRight: 12,
           }}
         >
           <Text
             style={{
-              fontFamily: fontFamilies.semibold,
-              fontSize: 20,
-              lineHeight: 26,
+              fontFamily: fontFamilies.bold,
+              fontSize: 22,
+              lineHeight: 28,
               color: colors.onSurface,
             }}
           >
@@ -90,8 +93,8 @@ export function OnboardingScreen({
               accessibilityRole="button"
               onPress={() => go('/login')}
               style={{
-                minHeight: 48,
-                paddingHorizontal: 16,
+                minHeight: 44,
+                paddingHorizontal: 14,
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
@@ -99,9 +102,9 @@ export function OnboardingScreen({
               <Text
                 style={{
                   fontFamily: fontFamilies.semibold,
-                  fontSize: 16,
-                  lineHeight: 22,
-                  color: colors.primary,
+                  fontSize: 15,
+                  lineHeight: 20,
+                  color: BRAND_ORANGE,
                 }}
               >
                 Bỏ qua
@@ -130,10 +133,9 @@ export function OnboardingScreen({
         {/* Text Details */}
         <View
           style={{
-            paddingTop: 24,
-            paddingHorizontal: 16,
+            paddingTop: 20,
+            paddingHorizontal: 20,
             gap: 8,
-            minHeight: 128,
           }}
         >
           <Text
@@ -150,8 +152,8 @@ export function OnboardingScreen({
           <Text
             style={{
               fontFamily: fontFamilies.regular,
-              fontSize: 16,
-              lineHeight: 24,
+              fontSize: 15,
+              lineHeight: 22,
               color: colors.onSurfaceVariant,
             }}
           >
@@ -162,10 +164,12 @@ export function OnboardingScreen({
         {/* Bottom Pagination & Actions */}
         <View
           style={{
+            marginTop: 'auto',
             paddingTop: 16,
-            paddingHorizontal: 16,
-            paddingBottom: Math.max(28, insets.bottom + 12),
+            paddingBottom: Math.max(24, insets.bottom + 12),
             gap: 16,
+            width: '100%',
+            alignItems: 'center',
           }}
         >
           {/* Indicator Dots */}
@@ -184,7 +188,7 @@ export function OnboardingScreen({
                   width: i === idx ? 24 : 8,
                   height: 8,
                   borderRadius: 4,
-                  backgroundColor: i === idx ? colors.primary : colors.divider,
+                  backgroundColor: i === idx ? BRAND_ORANGE : colors.divider,
                 }}
               />
             ))}
@@ -192,58 +196,71 @@ export function OnboardingScreen({
 
           {/* Action Buttons */}
           {!last ? (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setIdx(Math.min(2, idx + 1))}
-                style={({ pressed }) => [
-                  {
-                    minHeight: 48,
-                    borderRadius: 9999,
-                    backgroundColor: colors.primary,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingHorizontal: 24,
-                    opacity: pressed ? 0.9 : 1,
-                  },
-                ]}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIdx(Math.min(2, idx + 1))}
+              style={({ pressed }) => [
+                {
+                  width: '85%',
+                  maxWidth: 380,
+                  minHeight: 52,
+                  borderRadius: 9999,
+                  backgroundColor: BRAND_ORANGE,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 24,
+                  opacity: pressed ? 0.9 : 1,
+                  shadowColor: BRAND_ORANGE,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 4,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  fontFamily: fontFamilies.bold,
+                  fontSize: 16,
+                  lineHeight: 22,
+                  color: '#FFFFFF',
+                  letterSpacing: 0.2,
+                }}
               >
-                <Text
-                  style={{
-                    fontFamily: fontFamilies.semibold,
-                    fontSize: 16,
-                    lineHeight: 22,
-                    color: colors.onPrimary,
-                  }}
-                >
-                  Tiếp tục
-                </Text>
-              </Pressable>
-              <View style={{ height: 48 }} />
-            </>
+                Tiếp tục
+              </Text>
+            </Pressable>
           ) : (
-            <>
+            <View style={{ width: '100%', alignItems: 'center', gap: 10 }}>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => go('/register')}
                 style={({ pressed }) => [
                   {
-                    minHeight: 48,
+                    width: '85%',
+                    maxWidth: 380,
+                    minHeight: 52,
                     borderRadius: 9999,
-                    backgroundColor: colors.primary,
+                    backgroundColor: BRAND_ORANGE,
                     alignItems: 'center',
                     justifyContent: 'center',
                     paddingHorizontal: 24,
                     opacity: pressed ? 0.9 : 1,
+                    shadowColor: BRAND_ORANGE,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 4,
                   },
                 ]}
               >
                 <Text
                   style={{
-                    fontFamily: fontFamilies.semibold,
+                    fontFamily: fontFamilies.bold,
                     fontSize: 16,
                     lineHeight: 22,
-                    color: colors.onPrimary,
+                    color: '#FFFFFF',
+                    letterSpacing: 0.2,
                   }}
                 >
                   Tạo tài khoản
@@ -254,7 +271,9 @@ export function OnboardingScreen({
                 onPress={() => go('/login')}
                 style={({ pressed }) => [
                   {
-                    minHeight: 48,
+                    width: '85%',
+                    maxWidth: 380,
+                    minHeight: 46,
                     borderRadius: 9999,
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -266,15 +285,15 @@ export function OnboardingScreen({
                 <Text
                   style={{
                     fontFamily: fontFamilies.semibold,
-                    fontSize: 16,
+                    fontSize: 15,
                     lineHeight: 22,
-                    color: colors.primary,
+                    color: BRAND_ORANGE,
                   }}
                 >
                   Tôi đã có tài khoản
                 </Text>
               </Pressable>
-            </>
+            </View>
           )}
         </View>
       </View>

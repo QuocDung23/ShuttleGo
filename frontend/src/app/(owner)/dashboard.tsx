@@ -24,7 +24,11 @@ export default function DashboardPage() {
           <OverviewStats pendingCount={pendingBookings.length} occupancyLabel={occupancyLabel} />
           <OwnerText className="font-familjen-semibold text-title">Đơn chờ duyệt</OwnerText>
           {pendingBookings.length === 0 ? (
-            <OwnerText tone="muted" className="text-caption">Không có đơn chờ duyệt.</OwnerText>
+            <View className="min-h-[240px] flex-1 items-center justify-center">
+              <OwnerText tone="muted" className="text-center text-body">
+                Không có đơn chờ duyệt.
+              </OwnerText>
+            </View>
           ) : null}
           {pendingBookings.map((booking) => (
             <PendingBookingCard

@@ -71,20 +71,20 @@ const createVenuePriceRuleInput = {
 
 const bookingWritable = {
   courtId: { type: 'integer', minimum: 1 },
-  playerId: nullableId,
+  playerId: { ...nullableId, description: 'Owner/admin only. Players are always the authenticated user.' },
   createdBy: { type: 'integer', minimum: 1, description: 'Ignored; taken from the access token.' },
-  source: { type: 'string', enum: Object.values(BookingSource) },
+  source: { type: 'string', enum: Object.values(BookingSource), description: 'Owner/admin only; players are always "app".' },
   contactName: { type: 'string', minLength: 1, maxLength: 100 },
   contactPhone: phone,
   bookingDate: { type: 'string', format: 'date', example: '2026-11-20' },
   startTime: { ...time, example: '18:00' },
   endTime: { ...time, example: '20:00' },
-  totalAmount: { type: 'integer', minimum: 0, description: 'VND' },
-  status: { type: 'string', enum: Object.values(BookingStatus) },
-  paymentMethod: { type: 'string', enum: Object.values(PaymentMethod) },
-  paymentStatus: { type: 'string', enum: Object.values(PaymentStatus) },
-  proofImageUrl: nullableString,
-  holdExpiresAt: dateTime,
+  totalAmount: { type: 'integer', minimum: 0, description: 'VND. Must match the server-calculated total.' },
+  status: { type: 'string', enum: Object.values(BookingStatus), description: 'Owner/admin only; players always start as "pending".' },
+  paymentMethod: { type: 'string', enum: Object.values(PaymentMethod), description: 'Players use "bank_transfer" in v1.' },
+  paymentStatus: { type: 'string', enum: Object.values(PaymentStatus), description: 'Players must use "pending_verification" when reporting a transfer.' },
+  proofImageUrl: { ...nullableString, description: 'Not used by players in v1.' },
+  holdExpiresAt: { ...dateTime, description: 'Server-owned five-minute checkout hold. The player booking stays selected until a transfer is reported.' },
 };
 
 export const openApiSchemas = {
@@ -392,10 +392,96 @@ export const openApiSchemas = {
   },
   UpdateBookingInput: {
     type: 'object',
+    description: 'Owner/admin use. Players may only send PaymentClaimInput.',
     properties: {
       ...Object.fromEntries(Object.entries(bookingWritable).filter(([key]) => key !== 'createdBy')),
       cancelReason: { type: 'string', maxLength: 255, nullable: true },
       cancelledBy: nullableId,
+    },
+  },
+  PaymentClaimInput: {
+    type: 'object',
+    required: ['paymentStatus'],
+    additionalProperties: false,
+    properties: {
+      paymentStatus: { type: 'string', enum: [PaymentStatus.PENDING_VERIFICATION] },
+    },
+  },
+  VenueAvailability: {
+    type: 'object',
+    required: ['venueId', 'date', 'isOpen', 'courts'],
+    properties: {
+      venueId: { type: 'integer', minimum: 1 },
+      date: { type: 'string', format: 'date' },
+      isOpen: { type: 'boolean' },
+      openTime: { ...time, nullable: true },
+      closeTime: { ...time, nullable: true },
+      courts: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['id', 'name', 'occupiedRanges', 'heldRanges', 'checkoutRanges'],
+          properties: {
+            id: { type: 'integer', minimum: 1 },
+            name: { type: 'string' },
+            occupiedRanges: {
+              type: 'array',
+              description: 'Player bookings after transfer is reported plus owner-entered bookings; no customer details or booking codes.',
+              items: {
+                type: 'object',
+                required: ['startTime', 'endTime'],
+                properties: { startTime: time, endTime: time },
+              },
+            },
+            heldRanges: {
+              type: 'array',
+              description: 'Temporary player selections and unpaid checkout holds; no player data.',
+              items: {
+                type: 'object',
+                required: ['startTime', 'endTime'],
+                properties: { startTime: time, endTime: time },
+              },
+            },
+            checkoutRanges: {
+              type: 'array',
+              description: 'Unpaid player booking holds. These remain in the selected state until the player reports a transfer.',
+              items: {
+                type: 'object',
+                required: ['startTime', 'endTime'],
+                properties: { startTime: time, endTime: time },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  BookingHold: {
+    type: 'object',
+    required: ['id', 'playerId', 'courtId', 'bookingDate', 'startTime', 'endTime', 'expiresAt'],
+    properties: {
+      id: { type: 'integer' },
+      playerId: { type: 'integer' },
+      courtId: { type: 'integer' },
+      bookingDate: { type: 'string', format: 'date' },
+      startTime: time,
+      endTime: time,
+      expiresAt: { type: 'string', format: 'date-time' },
+    },
+  },
+  BookingHoldNullable: {
+    type: 'object',
+    nullable: true,
+    allOf: [{ $ref: '#/components/schemas/BookingHold' }],
+  },
+  SelectBookingHoldInput: {
+    type: 'object',
+    required: ['courtId', 'bookingDate', 'startTime', 'endTime'],
+    properties: {
+      courtId: { type: 'integer', minimum: 1 },
+      bookingDate: { type: 'string', format: 'date' },
+      startTime: time,
+      endTime: time,
     },
   },
   Notification: {

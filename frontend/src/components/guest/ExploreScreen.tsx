@@ -210,7 +210,12 @@ export function ExploreScreen() {
                 key={venue.id}
                 accessibilityRole="button"
                 accessibilityLabel={`Đặt sân ${venue.name}`}
-                onPress={() => router.push("./booking")}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(guest)/booking",
+                    params: { venueId: String(venue.id) },
+                  })
+                }
               >
                 <VenueCard venue={venue} />
               </Pressable>

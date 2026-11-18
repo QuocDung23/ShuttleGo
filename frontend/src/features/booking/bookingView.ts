@@ -9,6 +9,33 @@ export function bookingTimeLabel(booking: ApiBooking) {
   return `${formatBookingDate(booking.bookingDate)} · ${formatTimeRange(booking.startTime, booking.endTime)}`;
 }
 
+/** A pending/unpaid booking whose server-issued hold has passed is shown as expired. */
+export function isHoldExpired(booking: ApiBooking) {
+  if (booking.paymentStatus !== 'unpaid') return false;
+  return Boolean(booking.holdExpiresAt && Date.parse(booking.holdExpiresAt) <= Date.now());
+}
+
+export function bookingStatusLabel(booking: ApiBooking) {
+  if (isHoldExpired(booking)) return 'Hết hạn giữ chỗ';
+  if (
+    booking.status === 'pending' &&
+    booking.paymentStatus === 'unpaid' &&
+    booking.holdExpiresAt
+  ) {
+    return 'Đang chọn';
+  }
+  switch (booking.status) {
+    case 'pending':
+      return 'Chờ duyệt';
+    case 'confirmed':
+      return 'Đã xác nhận';
+    case 'cancelled':
+      return 'Đã hủy';
+    default:
+      return 'Hoàn tất';
+  }
+}
+
 function paymentLabel(booking: ApiBooking) {
   switch (booking.paymentStatus) {
     case 'paid':
@@ -16,9 +43,9 @@ function paymentLabel(booking: ApiBooking) {
     case 'refunded':
       return 'Đã hoàn tiền';
     case 'pending_verification':
-      return 'Chờ xác nhận thanh toán';
+      return 'Chờ chủ sân xác nhận';
     default:
-      return 'Trả tại sân';
+      return isHoldExpired(booking) ? 'Hết hạn giữ chỗ' : 'Chưa báo chuyển khoản';
   }
 }
 
@@ -37,13 +64,6 @@ export function toPendingBooking(booking: ApiBooking): PendingBooking {
 }
 
 export function toBookingHistoryItem(booking: ApiBooking): BookingHistoryItem {
-  const status: BookingHistoryItem['status'] =
-    booking.status === 'pending'
-      ? 'Chờ duyệt'
-      : booking.status === 'confirmed'
-        ? 'Đã xác nhận'
-        : booking.status === 'cancelled'
-          ? 'Đã hủy'
-          : 'Hoàn tất';
+  const status = bookingStatusLabel(booking) as BookingHistoryItem['status'];
   return { ...toPendingBooking(booking), status };
 }

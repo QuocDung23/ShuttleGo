@@ -1,5 +1,10 @@
 import { apiRequest } from '@/data/api/client';
-import type { ApiBooking } from '@/models/booking';
+import type {
+  ApiBooking,
+  BookingHold,
+  CreateBookingInput,
+  VenueAvailability,
+} from '@/models/booking';
 import type { Paginated } from '@/models/venue';
 
 export type ListBookingsParams = {
@@ -25,6 +30,45 @@ function toQuery(params: ListBookingsParams) {
 }
 
 export const bookingRepository = {
+  /** Public endpoint — no PII of other customers is returned. */
+  getVenueAvailability(venueId: number, date: string) {
+    const query = new URLSearchParams({ date });
+    return apiRequest<VenueAvailability>(`/venues/${venueId}/availability?${query}`, {
+      auth: false,
+    });
+  },
+
+  getMyHold() {
+    return apiRequest<BookingHold | null>('/booking-holds/mine');
+  },
+
+  selectHold(input: Pick<BookingHold, 'courtId' | 'bookingDate' | 'startTime' | 'endTime'>) {
+    return apiRequest<BookingHold>('/booking-holds', { method: 'POST', body: input });
+  },
+
+  releaseMyHold() {
+    return apiRequest<void>('/booking-holds/mine', { method: 'DELETE' });
+  },
+
+  create(input: CreateBookingInput) {
+    return apiRequest<ApiBooking>('/bookings', { method: 'POST', body: input });
+  },
+
+  get(id: number) {
+    return apiRequest<ApiBooking>(`/bookings/${id}`);
+  },
+
+  confirmPayment(id: number) {
+    return apiRequest<ApiBooking>(`/bookings/${id}`, {
+      method: 'PATCH',
+      body: { paymentStatus: 'pending_verification' },
+    });
+  },
+
+  cancelPendingCheckout(id: number) {
+    return apiRequest<ApiBooking>(`/bookings/${id}/cancel`, { method: 'POST' });
+  },
+
   list(params: ListBookingsParams = {}) {
     const qs = toQuery(params);
     return apiRequest<Paginated<ApiBooking>>(`/bookings${qs ? `?${qs}` : ''}`);

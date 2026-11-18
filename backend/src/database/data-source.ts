@@ -5,6 +5,7 @@ import { DataSource } from 'typeorm';
 import '@/config/env.js';
 import { Amenity } from '@/modules/amenities/amenity.entity.js';
 import { Booking } from '@/modules/bookings/booking.entity.js';
+import { BookingHold } from '@/modules/bookings/booking-hold.entity.js';
 import { Court } from '@/modules/courts/court.entity.js';
 import { Favorite } from '@/modules/favorites/favorite.entity.js';
 import { Notification } from '@/modules/notifications/notification.entity.js';
@@ -39,6 +40,7 @@ export const AppDataSource = new DataSource({
     PriceRule,
     Favorite,
     Booking,
+    BookingHold,
     Notification,
     Report,
   ],

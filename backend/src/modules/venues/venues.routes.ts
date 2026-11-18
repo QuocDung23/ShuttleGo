@@ -15,6 +15,9 @@ venuesRouter.get('/', controller.index);
 /** Owner's own venue records for onboarding/approval gate. Must be before /:id. */
 venuesRouter.get('/mine', ...ownerOnly, controller.mine);
 
+/** Public availability for one date. No auth and no customer data. */
+venuesRouter.get('/:venueId/availability', controller.availability);
+
 venuesRouter.get('/:id', controller.show);
 venuesRouter.post('/', ...ownerOrAdmin, controller.create);
 venuesRouter.patch('/:id', ...ownerOrAdmin, controller.update);

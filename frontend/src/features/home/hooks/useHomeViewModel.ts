@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { bookingRepository } from "@/data/repositories/bookingRepository";
 import { venueRepository } from "@/data/repositories/venueRepository";
 import { toPendingBooking } from "@/features/booking/bookingView";
+import { usePendingBookingCount } from "@/features/home/PendingBookingCountContext";
 import { useOwnerVenueAccess } from "@/features/venue/useOwnerVenueAccess";
 import type { PendingBooking } from "@/models/booking";
 import { closeMinutes, openMinutes } from "@/features/venue/ownerSetupContext";
@@ -10,6 +11,7 @@ import { timeToMinutes, toDateKey } from "@/shared/format";
 
 export function useHomeViewModel() {
   const { primaryVenue, loading: accessLoading, error: accessError } = useOwnerVenueAccess();
+  const { setCount: setPendingCount } = usePendingBookingCount();
   const [venueName, setVenueName] = useState("");
   const [occupancyLabel, setOccupancyLabel] = useState("0/0 giờ");
   const [pendingBookings, setPendingBookings] = useState<PendingBooking[]>([]);
@@ -44,6 +46,7 @@ export function useHomeViewModel() {
         .then(([venue, pendingRes, todayRes]) => {
           if (!active) return;
           setPendingBookings(pendingRes.data.map(toPendingBooking));
+          setPendingCount(pendingRes.meta.total);
 
           const courtCount = venue.courts?.filter((court) => court.isActive !== false).length ?? 0;
           const totalHours = ((closeMinutes - openMinutes) / 60) * courtCount;
@@ -74,10 +77,11 @@ export function useHomeViewModel() {
     try {
       await bookingRepository.updateStatus(Number(id), status);
       setPendingBookings((current) => current.filter((booking) => booking.id !== id));
+      setPendingCount((current) => Math.max(0, current - 1));
     } catch {
       // Keep the booking in the list so the owner can retry.
     }
-  }, []);
+  }, [setPendingCount]);
 
   return { venueName, occupancyLabel, pendingBookings, resolveBooking, loading, error };
 }

@@ -13,6 +13,26 @@ import {
 } from '@/docs/openapi.helpers.js';
 
 export const venuePaths: OpenApiPaths = {
+  '/venues/{venueId}/availability': {
+    get: {
+      tags: ['Venues'],
+      summary: 'Public slot availability for a venue on a date',
+      description:
+        'Only approved venues are served. occupiedRanges are bookings after payment is reported, heldRanges are four-minute selections, and checkoutRanges are unpaid five-minute checkout holds. No range contains customer data.',
+      parameters: [
+        idParameter('venueId', 'Venue ID'),
+        {
+          ...queryParameter('date', { type: 'string', format: 'date' }, 'YYYY-MM-DD'),
+          required: true,
+        },
+      ],
+      responses: {
+        200: jsonResponse('Availability', schemaRef('VenueAvailability')),
+        400: commonErrors[400],
+        404: commonErrors[404],
+      },
+    },
+  },
   '/venues': {
     get: {
       tags: ['Venues'],

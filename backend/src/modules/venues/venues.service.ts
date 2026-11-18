@@ -1,6 +1,6 @@
 import { EntityManager, ILike, In, type FindOptionsWhere } from 'typeorm';
 import type { AuthUser } from '@/common/auth.js';
-import { UserRole, VenueStatus } from '@/common/enums.js';
+import { BookingSource, BookingStatus, PaymentStatus, UserRole, VenueStatus } from '@/common/enums.js';
 import { badRequest, conflict, forbidden, notFound } from '@/common/http-error.js';
 import {
   assertTimeRange,
@@ -12,6 +12,14 @@ import {
 } from '@/common/validation.js';
 import { AppDataSource } from '@/database/data-source.js';
 import { Amenity } from '@/modules/amenities/amenity.entity.js';
+import { Booking } from '@/modules/bookings/booking.entity.js';
+import { BookingHold } from '@/modules/bookings/booking-hold.entity.js';
+import { expirePendingCheckoutBookings } from '@/modules/bookings/booking-expiration.js';
+import {
+  applyActiveOccupancyFilter,
+  dayOfWeekForDate,
+  resolveOpeningWindow,
+} from '@/modules/bookings/booking-rules.js';
 import { Court } from '@/modules/courts/court.entity.js';
 import { PriceRule } from '@/modules/price-rules/price-rule.entity.js';
 import { Venue } from '@/modules/venues/venue.entity.js';
@@ -67,6 +75,86 @@ export async function findOne(id: number) {
   });
   if (!venue) throw notFound(`Venue #${id} not found`);
   return venue;
+}
+
+/**
+ * Public availability for one date. Only approved venues are exposed, only
+ * active courts are listed, and occupied ranges carry no customer data.
+ */
+export async function getAvailability(venueId: number, date: string) {
+  const venue = await repo().findOne({
+    where: { id: venueId, status: VenueStatus.APPROVED },
+    relations: { courts: true, operatingHours: true, priceRules: true },
+    order: { courts: { id: 'ASC' } },
+  });
+  if (!venue) throw notFound(`Venue #${venueId} not found`);
+
+  const dayRow = venue.operatingHours?.find(
+    (row) => row.dayOfWeek === dayOfWeekForDate(date),
+  );
+  const window = resolveOpeningWindow(dayRow, venue.priceRules ?? []);
+  const courts = (venue.courts ?? []).filter((court) => court.isActive);
+
+  const occupiedByCourt = new Map<number, { startTime: string; endTime: string }[]>();
+  const heldByCourt = new Map<number, { startTime: string; endTime: string }[]>();
+  const checkoutByCourt = new Map<number, { startTime: string; endTime: string }[]>();
+  if (courts.length > 0) {
+    const qb = applyActiveOccupancyFilter(
+      AppDataSource.getRepository(Booking)
+        .createQueryBuilder('b')
+        .select([
+          'b.courtId',
+          'b.startTime',
+          'b.endTime',
+          'b.source',
+          'b.status',
+          'b.paymentStatus',
+          'b.holdExpiresAt',
+        ])
+        .where('b.bookingDate = :date', { date })
+        .andWhere('b.courtId IN (:...courtIds)', { courtIds: courts.map((court) => court.id) }),
+    );
+    const rows = await qb.getMany();
+    for (const row of rows) {
+      const checkoutHold =
+        row.source === BookingSource.APP &&
+        row.status === BookingStatus.PENDING &&
+        row.paymentStatus === PaymentStatus.UNPAID &&
+        row.holdExpiresAt !== null;
+      const target = checkoutHold ? checkoutByCourt : occupiedByCourt;
+      const list = target.get(row.courtId) ?? [];
+      list.push({ startTime: row.startTime, endTime: row.endTime });
+      target.set(row.courtId, list);
+    }
+
+    const holds = await AppDataSource.getRepository(BookingHold)
+      .createQueryBuilder('h')
+      .select(['h.courtId', 'h.startTime', 'h.endTime'])
+      .where('h.bookingDate = :date', { date })
+      .andWhere('h.courtId IN (:...courtIds)', { courtIds: courts.map((court) => court.id) })
+      .andWhere('h.expiresAt > now()')
+      .getMany();
+    for (const hold of holds) {
+      const list = heldByCourt.get(hold.courtId) ?? [];
+      list.push({ startTime: hold.startTime, endTime: hold.endTime });
+      heldByCourt.set(hold.courtId, list);
+    }
+  }
+
+  return {
+    venueId,
+    date,
+    isOpen: window.isOpen,
+    openTime: window.openTime,
+    closeTime: window.closeTime,
+    courts: courts.map((court) => ({
+      id: court.id,
+      name: court.name,
+      occupiedRanges: occupiedByCourt.get(court.id) ?? [],
+      heldRanges: heldByCourt.get(court.id) ?? [],
+      checkoutRanges: checkoutByCourt.get(court.id) ?? [],
+    })),
+  };
 }
 
 /** Plain venue row, throws 404. Also used by other modules. */
