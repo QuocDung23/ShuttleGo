@@ -191,9 +191,15 @@ export const openApiSchemas = {
   },
   CreateVenueInput: {
     type: 'object',
-    required: ['name', 'address', 'district', 'city', 'priceRules'],
+    required: ['name', 'address', 'district', 'city', 'courtCount', 'priceRules'],
     properties: {
       ...venueWritable,
+      courtCount: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 100,
+        description: 'Number of courts to create with the venue; not stored on the venue row.',
+      },
       priceRules: {
         type: 'array',
         minItems: 2,

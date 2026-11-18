@@ -98,7 +98,7 @@ Quyền:
 | --- | --- | --- |
 | users | `GET/POST /users`, `GET/PATCH/DELETE /users/:id` | `role, status, search` |
 | amenities | `GET/POST /amenities`, `GET/PATCH/DELETE /amenities/:id` | |
-| venues | `GET/POST /venues`, `GET/PATCH/DELETE /venues/:id` | `ownerId, status, city, district, search, sort=newest\|name` |
+| venues | `GET/POST /venues`, `GET/PATCH/DELETE /venues/:id` — `POST` bắt buộc `courtCount` (1–100) | `ownerId, status, city, district, search, sort=newest\|name` |
 | | `PATCH /venues/:id/review` — admin duyệt `{ status, reviewedBy, reviewNote? }` | |
 | venue_amenities | `GET /venues/:id/amenities`, `PUT /venues/:id/amenities` `{ amenityIds: [] }` | |
 | operating_hours | `GET /venues/:id/operating-hours`<br>`PUT /venues/:id/operating-hours` `{ hours: [...] }` (thay cả tuần)<br>`PUT/DELETE /venues/:id/operating-hours/:dayOfWeek` | |
@@ -118,6 +118,9 @@ Quyền:
 - **Price rules**: các khung giờ trong cùng một venue không được chồng nhau.
 - **Reports**: đổi `status` → `resolved`/`rejected` thì tự set `resolvedAt`.
 - **Venues**: `GET /venues/:id` trả kèm owner, amenities, courts, operatingHours, priceRules.
+  `POST /venues` tạo Venue, 2 price rules và `courtCount` Court (`Sân 1..N`, `isActive: true`)
+  trong cùng transaction; `courts` được trả theo `id ASC`. `courtCount` không phải cột DB và
+  không được nhận ở `PATCH /venues/:id`.
 
 ### Giá trị enum
 

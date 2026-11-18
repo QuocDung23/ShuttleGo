@@ -21,6 +21,8 @@ export const createVenueSchema = z.object({
   address: z.string().trim().min(1).max(255),
   district: z.string().trim().min(1).max(100),
   city: z.string().trim().min(1).max(100),
+  /** Number of courts to create with this venue. Not stored on the venue row. */
+  courtCount: z.number().int().min(1).max(100),
   phone: z.string().max(20).nullable().optional(),
   description: z.string().nullable().optional(),
   coverImageUrl: z.string().nullable().optional(),
@@ -38,7 +40,7 @@ export const createVenueSchema = z.object({
 
 /** Owner can't be changed; status goes through PATCH /venues/:id/review. */
 export const updateVenueSchema = createVenueSchema
-  .omit({ ownerId: true, priceRules: true })
+  .omit({ ownerId: true, priceRules: true, courtCount: true })
   .partial();
 
 export const reviewVenueSchema = z.object({

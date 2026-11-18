@@ -12,6 +12,7 @@ import {
 } from '@/common/validation.js';
 import { AppDataSource } from '@/database/data-source.js';
 import { Amenity } from '@/modules/amenities/amenity.entity.js';
+import { Court } from '@/modules/courts/court.entity.js';
 import { PriceRule } from '@/modules/price-rules/price-rule.entity.js';
 import { Venue } from '@/modules/venues/venue.entity.js';
 import type {
@@ -59,7 +60,7 @@ export async function findOne(id: number) {
       priceRules: true,
     },
     order: {
-      courts: { name: 'ASC' },
+      courts: { id: 'ASC' },
       operatingHours: { dayOfWeek: 'ASC' },
       priceRules: { startTime: 'ASC' },
     },
@@ -90,7 +91,10 @@ function validateVenuePriceRules(priceRules: CreateVenueInput['priceRules']) {
   }
 }
 
-export async function create({ amenityIds, priceRules, ...input }: CreateVenueInput, user: AuthUser) {
+export async function create(
+  { amenityIds, priceRules, courtCount, ...input }: CreateVenueInput,
+  user: AuthUser,
+) {
   // Owners can only create venues for themselves; admins may assign an owner.
   const ownerId = user.role === UserRole.ADMIN ? input.ownerId : user.id;
   if (!ownerId) throw badRequest('ownerId is required');
@@ -109,6 +113,17 @@ export async function create({ amenityIds, priceRules, ...input }: CreateVenueIn
     const ruleRepo = manager.getRepository(PriceRule);
     await ruleRepo.save(
       priceRules.map((rule) => ruleRepo.create({ ...rule, venueId: saved.id })),
+    );
+
+    const courtRepo = manager.getRepository(Court);
+    await courtRepo.save(
+      Array.from({ length: courtCount }, (_, index) =>
+        courtRepo.create({
+          venueId: saved.id,
+          name: `Sân ${index + 1}`,
+          isActive: true,
+        }),
+      ),
     );
 
     return saved.id;

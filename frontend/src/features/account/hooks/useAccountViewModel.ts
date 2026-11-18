@@ -6,22 +6,22 @@ const menu = [
   {
     icon: { ios: 'building.2', android: 'sports_tennis', web: 'sports_tennis' },
     title: 'Thông tin sân',
-    path: '/venue-info',
+    path: '/(owner)/venue-info',
   },
   {
     icon: { ios: 'tag', android: 'sell', web: 'sell' },
     title: 'Giá theo khung giờ',
-    path: '/pricing',
+    path: '/(owner)/pricing',
   },
   {
     icon: { ios: 'clock', android: 'schedule', web: 'schedule' },
     title: 'Giờ mở cửa',
-    path: '/hours',
+    path: '/(owner)/hours',
   },
   {
     icon: { ios: 'bell', android: 'notifications', web: 'notifications' },
     title: 'Thông báo',
-    path: '/notifications',
+    path: '/(owner)/notifications',
   },
 ] as const;
 

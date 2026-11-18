@@ -1,61 +1,199 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type {
-  BookingDetail,
-  ScheduleCourt,
-  ScheduleDate,
-} from "@/models/schedule";
+import { bookingRepository } from "@/data/repositories/bookingRepository";
+import { venueRepository } from "@/data/repositories/venueRepository";
+import { useOwnerVenueAccess } from "@/features/venue/useOwnerVenueAccess";
+import type { ApiBooking } from "@/models/booking";
+import type { BookingDetail, ScheduleCourt, ScheduleDate, ScheduleSlot } from "@/models/schedule";
+import {
+  formatBookingDate,
+  formatMoney,
+  formatTimeRange,
+  toDateKey,
+} from "@/shared/format";
 
-const dates: ScheduleDate[] = [
-  { day: "Hôm nay", label: "31/10" },
-  { day: "CN", label: "01/11" },
-  { day: "T2", label: "02/11" },
-  { day: "T3", label: "03/11" },
-  { day: "T4", label: "04/11" },
-  { day: "T5", label: "05/11" },
-];
+const WEEKDAY_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+const DEFAULT_OPEN_TIME = "06:00";
+const DEFAULT_CLOSE_TIME = "22:00";
+const SLOT_MINUTES = 60;
 
-const hours = [
-  "06:00",
-  "07:00",
-  "08:00",
-  "09:00",
-  "10:00",
-  "11:00",
-  "12:00",
-  "13:00",
-];
-const courts: ScheduleCourt[] = Array.from({ length: 6 }, (_, courtIndex) => ({
-  id: courtIndex + 1,
-  name: `Sân ${courtIndex + 1}`,
-  slots: hours.map((hour, hourIndex) => ({
-    hour,
-    status: courtIndex === 1 && hourIndex === 0 ? "Chờ duyệt" : "Đã đặt",
-  })),
-}));
-const bookingDetail: BookingDetail = {
-  title: "Sân 2 · T7, 31/10 · 19:00",
-  rows: [
-    ["Người đặt", "Trần Quốc Bảo"],
-    ["Số điện thoại", "0903 456 789"],
-    ["Thời gian", "19:00 – 21:00"],
-    ["Tiền sân", "260.000đ"],
-    ["Thanh toán", "Trả tại sân"],
-  ],
-};
+function toMinutes(time: string) {
+  const [hours, minutes] = time.slice(0, 5).split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function buildSlotHours(openTime: string, closeTime: string) {
+  const openMinutes = toMinutes(openTime);
+  const closeMinutes = toMinutes(closeTime);
+  const slots: string[] = [];
+
+  for (let start = openMinutes; start + SLOT_MINUTES <= closeMinutes; start += SLOT_MINUTES) {
+    slots.push(
+      `${String(Math.floor(start / 60)).padStart(2, "0")}:${String(start % 60).padStart(2, "0")}`,
+    );
+  }
+  return slots;
+}
+
+function bookingIsActive(booking: ApiBooking) {
+  if (booking.status === "cancelled") return false;
+  return !(
+    booking.status === "pending" &&
+    booking.holdExpiresAt &&
+    Date.parse(booking.holdExpiresAt) < Date.now()
+  );
+}
+
+function buildDates(count = 6): ScheduleDate[] {
+  const today = new Date();
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() + index);
+    return {
+      day: index === 0 ? "Hôm nay" : WEEKDAY_LABELS[date.getDay()],
+      label: `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`,
+      dayOfWeek: date.getDay(),
+    };
+  });
+}
+
+function toDetail(booking: ApiBooking): BookingDetail {
+  return {
+    title: `${booking.court?.name ?? "Sân"} · ${formatBookingDate(booking.bookingDate)} · ${booking.startTime.slice(0, 5)}`,
+    rows: [
+      ["Người đặt", booking.contactName],
+      ["Số điện thoại", booking.contactPhone],
+      ["Thời gian", formatTimeRange(booking.startTime, booking.endTime)],
+      ["Tiền sân", formatMoney(booking.totalAmount)],
+      ["Thanh toán", booking.paymentStatus === "paid" ? "Đã thanh toán" : "Trả tại sân"],
+    ],
+  };
+}
 
 export function useScheduleViewModel() {
+  const { primaryVenue, loading: accessLoading, error: accessError } = useOwnerVenueAccess();
+  const dates = useMemo(() => buildDates(), []);
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
+  const [courts, setCourts] = useState<ScheduleCourt[]>([]);
+  const [bookings, setBookings] = useState<ApiBooking[]>([]);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
   const [isBookingDetailVisible, setBookingDetailVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isClosed, setIsClosed] = useState(false);
+
+  const selectedDate = dates[selectedDateIndex]?.label;
+  const selectedDayOfWeek = dates[selectedDateIndex]?.dayOfWeek;
+  const dateKey = useMemo(() => {
+    const today = new Date();
+    const date = new Date(today);
+    date.setDate(today.getDate() + selectedDateIndex);
+    return toDateKey(date);
+  }, [selectedDateIndex]);
+
+  useEffect(() => {
+    let active = true;
+    queueMicrotask(() => {
+      if (!active || accessLoading) return;
+      if (accessError) {
+        setError(accessError);
+        setLoading(false);
+        return;
+      }
+      if (!primaryVenue) {
+        setError("Không tìm thấy thông tin sân của tài khoản này.");
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError("");
+      void Promise.all([
+        venueRepository.get(primaryVenue.id),
+        bookingRepository.listAll({ venueId: primaryVenue.id, date: dateKey }),
+      ])
+        .then(([venue, dayBookings]) => {
+          if (!active) return;
+          setBookings(dayBookings);
+          const openingHours = venue.operatingHours?.find(
+            (hours) => hours.dayOfWeek === selectedDayOfWeek,
+          );
+          const closed = openingHours?.isOpen === false;
+          setIsClosed(closed);
+          const slotHours = closed
+            ? []
+            : buildSlotHours(
+                openingHours?.openTime ?? DEFAULT_OPEN_TIME,
+                openingHours?.closeTime ?? DEFAULT_CLOSE_TIME,
+              );
+          const activeCourts = (venue.courts ?? []).filter((court) => court.isActive !== false);
+          setCourts(
+            activeCourts.map((court) => ({
+              id: court.id,
+              name: court.name,
+              slots: slotHours.map((hour) => {
+                const slotStart = toMinutes(hour);
+                const booking = dayBookings.find((item) => {
+                  if (item.courtId !== court.id || !bookingIsActive(item)) return false;
+                  return toMinutes(item.startTime) < slotStart + SLOT_MINUTES && toMinutes(item.endTime) > slotStart;
+                });
+                const status: ScheduleSlot["status"] = !booking
+                  ? "Còn trống"
+                  : booking.status === "pending"
+                    ? "Chờ duyệt"
+                    : "Đã đặt";
+                return {
+                  hour,
+                  status,
+                  bookingId: booking?.id,
+                };
+              }),
+            })),
+          );
+        })
+        .catch((e) => {
+          if (active) setError(e instanceof Error ? e.message : "Không tải được lịch sân.");
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [accessError, accessLoading, primaryVenue, dateKey, selectedDayOfWeek]);
+
+  const selectDate = useCallback((index: number) => {
+    setSelectedDateIndex(index);
+    setBookingDetailVisible(false);
+  }, []);
+
+  const openBookingDetail = useCallback((bookingId: number) => {
+    setSelectedBookingId(bookingId);
+    setBookingDetailVisible(true);
+  }, []);
+
+  const closeBookingDetail = useCallback(() => setBookingDetailVisible(false), []);
+
+  const bookingDetail: BookingDetail = useMemo(() => {
+    const booking = bookings.find((item) => item.id === selectedBookingId);
+    if (!booking) return { title: "", rows: [] };
+    return toDetail(booking);
+  }, [bookings, selectedBookingId]);
 
   return {
     dates,
     courts,
     bookingDetail,
     selectedDateIndex,
-    selectDate: setSelectedDateIndex,
+    selectDate,
     isBookingDetailVisible,
-    openBookingDetail: () => setBookingDetailVisible(true),
-    closeBookingDetail: () => setBookingDetailVisible(false),
+    openBookingDetail,
+    closeBookingDetail,
+    loading,
+    error,
+    selectedDate,
+    isClosed,
   };
 }

@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import { SymbolView } from "expo-symbols";
-import { Pressable, ScrollView, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { OwnerText } from "@/components/ui/owner-ui";
@@ -10,7 +10,7 @@ import { colors } from "@/shared/theme";
 
 export function GuestNotificationsScreen() {
   const router = useRouter();
-  const { notifications, unreadIds, markRead, markAllRead } =
+  const { notifications, unreadIds, markRead, markAllRead, loading, error } =
     useGuestNotificationsViewModel();
 
   return (
@@ -53,14 +53,22 @@ export function GuestNotificationsScreen() {
 
       {/* List */}
       <ScrollView showsVerticalScrollIndicator={false}>
-        {notifications.map((notification) => (
-          <GuestNotificationItem
-            key={notification.id}
-            notification={notification}
-            unread={unreadIds.has(notification.id)}
-            onPress={() => markRead(notification.id)}
-          />
-        ))}
+        {loading ? (
+          <View className="items-center py-8"><ActivityIndicator /></View>
+        ) : error ? (
+          <OwnerText className="p-4 text-caption text-guest-on-surface-variant">{error}</OwnerText>
+        ) : notifications.length === 0 ? (
+          <OwnerText className="p-4 text-caption text-guest-on-surface-variant">Chưa có thông báo nào.</OwnerText>
+        ) : (
+          notifications.map((notification) => (
+            <GuestNotificationItem
+              key={notification.id}
+              notification={notification}
+              unread={unreadIds.has(notification.id)}
+              onPress={() => markRead(notification.id)}
+            />
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );

@@ -12,6 +12,8 @@ export type CreateVenueInput = {
   address: string;
   district: string;
   city: string;
+  /** Number of courts to create with this venue (1–100). */
+  courtCount: number;
   phone?: string | null;
   description?: string | null;
   coverImageUrl?: string | null;
@@ -23,6 +25,22 @@ export type CreateVenueInput = {
   amenityIds?: number[];
   priceRules: [VenuePriceRuleInput, VenuePriceRuleInput];
 };
+
+export type UpdateVenueInput = Partial<{
+  name: string;
+  address: string;
+  district: string;
+  city: string;
+  phone: string | null;
+  description: string | null;
+  coverImageUrl: string | null;
+  bankName: string | null;
+  bankAccountNo: string | null;
+  bankAccountHolder: string | null;
+  bankQrImageUrl: string | null;
+  weekendSurcharge: number;
+  amenityIds: number[];
+}>;
 
 export type Amenity = {
   id: number;
@@ -38,11 +56,38 @@ export type PriceRule = {
   pricePerHour: number;
 };
 
+export type UpdatePriceRuleInput = Partial<
+  Pick<PriceRule, 'label' | 'startTime' | 'endTime' | 'pricePerHour'>
+>;
+
 export type Court = {
   id: number;
   venueId: number;
   name: string;
   isActive?: boolean;
+};
+
+export type OperatingHour = {
+  venueId: number;
+  dayOfWeek: number;
+  isOpen: boolean;
+  openTime: string | null;
+  closeTime: string | null;
+};
+
+export type OperatingHourInput = {
+  dayOfWeek: number;
+  isOpen: boolean;
+  openTime?: string | null;
+  closeTime?: string | null;
+};
+
+export type OpeningHoursDay = {
+  dayOfWeek: number;
+  label: string;
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
 };
 
 export type Venue = {
@@ -69,6 +114,7 @@ export type Venue = {
   amenities?: Amenity[];
   priceRules?: PriceRule[];
   courts?: Court[];
+  operatingHours?: OperatingHour[];
 };
 
 export type Paginated<T> = {

@@ -34,9 +34,12 @@ export type OwnerSetupPricing = {
 type OwnerSetupContextValue = {
   venueInfo: OwnerSetupVenueInfo;
   pricing: OwnerSetupPricing;
+  /** Raw input so empty and invalid values stay distinguishable until submit. */
+  courtCount: string;
   createdVenue: Venue | null;
   setVenueInfo: (patch: Partial<OwnerSetupVenueInfo>) => void;
   setPricing: (patch: Partial<OwnerSetupPricing>) => void;
+  setCourtCount: (value: string) => void;
   setCreatedVenue: (venue: Venue | null) => void;
   reset: () => void;
 };
@@ -72,6 +75,7 @@ const OwnerSetupContext = createContext<OwnerSetupContextValue | null>(null);
 export function OwnerSetupProvider({ children }: PropsWithChildren) {
   const [venueInfo, setVenueInfoState] = useState<OwnerSetupVenueInfo>(createEmptyOwnerSetupVenueInfo);
   const [pricing, setPricingState] = useState<OwnerSetupPricing>(createEmptyOwnerSetupPricing);
+  const [courtCount, setCourtCount] = useState('');
   const [createdVenue, setCreatedVenue] = useState<Venue | null>(null);
 
   const setVenueInfo = useCallback((patch: Partial<OwnerSetupVenueInfo>) => {
@@ -85,6 +89,7 @@ export function OwnerSetupProvider({ children }: PropsWithChildren) {
   const reset = useCallback(() => {
     setVenueInfoState(createEmptyOwnerSetupVenueInfo());
     setPricingState(createEmptyOwnerSetupPricing());
+    setCourtCount('');
     setCreatedVenue(null);
   }, []);
 
@@ -92,13 +97,15 @@ export function OwnerSetupProvider({ children }: PropsWithChildren) {
     () => ({
       venueInfo,
       pricing,
+      courtCount,
       createdVenue,
       setVenueInfo,
       setPricing,
+      setCourtCount,
       setCreatedVenue,
       reset,
     }),
-    [createdVenue, pricing, reset, setPricing, setVenueInfo, venueInfo],
+    [courtCount, createdVenue, pricing, reset, setPricing, setVenueInfo, venueInfo],
   );
 
   return <OwnerSetupContext.Provider value={value}>{children}</OwnerSetupContext.Provider>;

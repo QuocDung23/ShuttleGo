@@ -1,5 +1,11 @@
 import { apiRequest } from '@/data/api/client';
-import type { CreateVenueInput, OwnerVenuesResponse, Paginated, Venue } from '@/models/venue';
+import type {
+  CreateVenueInput,
+  OwnerVenuesResponse,
+  Paginated,
+  UpdateVenueInput,
+  Venue,
+} from '@/models/venue';
 
 type ListVenuesParams = {
   page?: number;
@@ -9,9 +15,20 @@ type ListVenuesParams = {
 };
 
 export const venueRepository = {
+  get(id: number) {
+    return apiRequest<Venue>(`/venues/${id}`);
+  },
+
   create(input: CreateVenueInput) {
     return apiRequest<Venue>('/venues', {
       method: 'POST',
+      body: input,
+    });
+  },
+
+  update(id: number, input: UpdateVenueInput) {
+    return apiRequest<Venue>(`/venues/${id}`, {
+      method: 'PATCH',
       body: input,
     });
   },

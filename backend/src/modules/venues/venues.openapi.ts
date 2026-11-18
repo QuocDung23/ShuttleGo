@@ -33,11 +33,71 @@ export const venuePaths: OpenApiPaths = {
     },
     post: {
       tags: ['Venues'],
-      summary: 'Create a venue (owner/admin)',
+      summary: 'Create a venue (owner/admin), its price rules and N courts',
+      description:
+        '`courtCount` is required for both owners and admins. Courts named `Sân 1..N` are created in the same transaction and returned in `courts` (ordered by id).',
       security: bearerSecurity,
-      requestBody: jsonBody(schemaRef('CreateVenueInput')),
+      requestBody: {
+        ...jsonBody(schemaRef('CreateVenueInput')),
+        content: {
+          'application/json': {
+            schema: schemaRef('CreateVenueInput'),
+            example: {
+              name: 'Sân cầu lông Minh An',
+              address: '12 Nguyễn Trãi',
+              district: 'Quận 5',
+              city: 'TP. Hồ Chí Minh',
+              courtCount: 2,
+              priceRules: [
+                { label: 'Giờ thường', startTime: '06:00', endTime: '17:00', pricePerHour: 80000 },
+                { label: 'Giờ cao điểm', startTime: '17:00', endTime: '22:00', pricePerHour: 120000 },
+              ],
+            },
+          },
+        },
+      },
       responses: {
-        201: jsonResponse('Venue created', schemaRef('Venue')),
+        201: {
+          ...jsonResponse('Venue created', schemaRef('Venue')),
+          content: {
+            'application/json': {
+              schema: schemaRef('Venue'),
+              example: {
+                id: 1,
+                ownerId: 2,
+                name: 'Sân cầu lông Minh An',
+                address: '12 Nguyễn Trãi',
+                district: 'Quận 5',
+                city: 'TP. Hồ Chí Minh',
+                status: 'pending',
+                createdAt: '2026-11-18T08:00:00.000Z',
+                updatedAt: '2026-11-18T08:00:00.000Z',
+                courts: [
+                  { id: 1, venueId: 1, name: 'Sân 1', isActive: true },
+                  { id: 2, venueId: 1, name: 'Sân 2', isActive: true },
+                ],
+                priceRules: [
+                  {
+                    id: 1,
+                    venueId: 1,
+                    label: 'Giờ thường',
+                    startTime: '06:00',
+                    endTime: '17:00',
+                    pricePerHour: 80000,
+                  },
+                  {
+                    id: 2,
+                    venueId: 1,
+                    label: 'Giờ cao điểm',
+                    startTime: '17:00',
+                    endTime: '22:00',
+                    pricePerHour: 120000,
+                  },
+                ],
+              },
+            },
+          },
+        },
         400: commonErrors[400],
         401: commonErrors[401],
         403: commonErrors[403],
