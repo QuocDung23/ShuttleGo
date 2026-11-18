@@ -35,7 +35,21 @@ export default function LoginPage() {
       setError("Số điện thoại hoặc mật khẩu không đúng với vai trò đã chọn.");
       return;
     }
-    router.replace(account.role === "owner" ? "/(owner)/dashboard" : "/(guest)/explore");
+    if (account.role === "owner") {
+      if (account.approvalStatus === "pending") {
+        router.push("/owner-setup/pending");
+        return;
+      }
+      if (account.approvalStatus === "rejected") {
+        setError(
+          "Tài khoản của bạn đã bị từ chối duyệt. Bạn không có quyền sử dụng ứng dụng."
+        );
+        return;
+      }
+      router.replace("/(owner)/dashboard");
+      return;
+    }
+    router.replace("/(guest)/explore");
   };
 
   return (
@@ -66,7 +80,9 @@ export default function LoginPage() {
       <View className="mt-8 gap-5">
         <RoleToggle selected={role} onSelect={selectRole} />
         <OwnerText tone="muted" className="-mt-3 text-caption">
-          Demo: {demoAccount.phone} / {demoAccount.password}
+          {role === "owner"
+            ? "Demo: 0909 123 457 (Đã duyệt) | 0909 123 458 (Chờ duyệt) / owner123"
+            : `Demo: ${demoAccount.phone} / ${demoAccount.password}`}
         </OwnerText>
         <AuthField
           label="Số điện thoại"

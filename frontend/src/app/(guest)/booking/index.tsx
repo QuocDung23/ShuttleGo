@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
-import { useState, useMemo } from "react";
-import { Pressable, ScrollView, View, Image } from "react-native";
+import { useMemo, useState } from "react";
+import { Image, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { OwnerButton, OwnerText } from "@/components/ui/owner-ui";
@@ -69,21 +69,20 @@ export default function BookingDetailsPage() {
   const toggleSlot = (index: number) => {
     if (slots[index].status === "booked") return;
     setSelectedSlots((prev) =>
-      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+      prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index],
     );
   };
 
   const sortedSelected = [...selectedSlots].sort((a, b) => a - b);
 
-  const totalPrice = sortedSelected.reduce(
-    (sum, i) => sum + slots[i].price,
-    0
-  );
+  const totalPrice = sortedSelected.reduce((sum, i) => sum + slots[i].price, 0);
 
   const timeRange =
     sortedSelected.length > 0
       ? `${slots[sortedSelected[0]].hour} – ${
-          Number(slots[sortedSelected[sortedSelected.length - 1]].hour.split(":")[0]) + 1
+          Number(
+            slots[sortedSelected[sortedSelected.length - 1]].hour.split(":")[0],
+          ) + 1
         }:00`
       : "";
 
@@ -92,28 +91,34 @@ export default function BookingDetailsPage() {
 
   return (
     <SafeAreaView className="flex-1 bg-guest-background">
-      {/* ── Back button ── */}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Quay lại"
-        onPress={() => router.back()}
-        className="ml-2 mt-1 h-11 w-11 items-center justify-center rounded-full"
-      >
-        <OwnerText className="text-[26px] text-guest-on-surface-variant">
-          ‹
+      {/* ── Header: Back button + Title ── */}
+      <View className="flex-row items-center px-2 pt-1 pb-1">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Quay lại"
+          onPress={() => router.back()}
+          className="h-11 w-11 items-center justify-center rounded-full"
+        >
+          <OwnerText
+            style={{ fontSize: 26, lineHeight: 26 }}
+            className="text-guest-on-surface-variant"
+          >
+            ‹
+          </OwnerText>
+        </Pressable>
+        <OwnerText className="ml-1 font-familjen-bold text-title text-guest-on-surface">
+          Sân cầu lông Kỳ Hòa
         </OwnerText>
-      </Pressable>
+      </View>
 
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerClassName="gap-6 px-5 pb-6 pt-2"
         showsVerticalScrollIndicator={false}
       >
         {/* ── Venue card ── */}
         <View className="overflow-hidden rounded-2xl bg-guest-surface">
-          <OwnerText className="px-4 pt-4 font-familjen-bold text-title text-guest-on-surface">
-            Sân cầu lông Kỳ Hòa
-          </OwnerText>
-          <View className="mx-4 mt-3 mb-4 h-40 overflow-hidden rounded-2xl bg-guest-selected">
+          <View className="mx-4 mt-4 mb-4 h-40 overflow-hidden rounded-2xl bg-guest-selected">
             <Image
               source={{
                 uri: "https://images.unsplash.com/photo-1775993167393-f2add1f8eec2?auto=format&fit=crop&w=1200&q=80",
@@ -164,7 +169,9 @@ export default function BookingDetailsPage() {
                 >
                   <OwnerText
                     className={`text-caption font-familjen-medium ${
-                      active ? "text-on-primary" : "text-guest-on-surface-variant"
+                      active
+                        ? "text-on-primary"
+                        : "text-guest-on-surface-variant"
                     }`}
                   >
                     {day.label}
@@ -264,13 +271,13 @@ export default function BookingDetailsPage() {
                   disabled={isBooked}
                   className={`w-[23%] items-center rounded-xl border p-2.5 ${bgClass} ${borderClass}`}
                 >
-                  <OwnerText className={`font-familjen-semibold text-label ${textClass}`}>
+                  <OwnerText
+                    className={`font-familjen-semibold text-label ${textClass}`}
+                  >
                     {slot.hour}
                   </OwnerText>
                   <OwnerText className={`text-caption ${subTextClass}`}>
-                    {isBooked
-                      ? "Đã đặt"
-                      : `${(slot.price / 1000).toFixed(0)}k`}
+                    {isBooked ? "Đã đặt" : `${(slot.price / 1000).toFixed(0)}k`}
                   </OwnerText>
                 </Pressable>
               );
@@ -286,11 +293,9 @@ export default function BookingDetailsPage() {
             <OwnerText className="text-body text-guest-on-surface-variant">
               {sortedSelected.length > 0 ? summary : "Chưa chọn giờ"}
             </OwnerText>
-            {sortedSelected.length > 0 && (
-              <OwnerText className="text-body text-guest-on-surface-variant">
-                {timeRange}
-              </OwnerText>
-            )}
+            <OwnerText className="text-body text-guest-on-surface-variant">
+              {sortedSelected.length > 0 ? timeRange : " "}
+            </OwnerText>
           </View>
           <OwnerText className="font-familjen-bold text-title text-guest-on-surface">
             {sortedSelected.length > 0 ? formatPrice(totalPrice) : "0đ"}

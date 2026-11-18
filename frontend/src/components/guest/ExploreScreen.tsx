@@ -77,6 +77,7 @@ export function ExploreScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Thông báo"
+              onPress={() => router.push("/notifications")}
               className="relative h-11 w-8 items-center justify-center"
             >
               <SymbolView
