@@ -1,65 +1,64 @@
-import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Pressable, View } from 'react-native';
 
-import {
-  AuthField,
-  InlineLink,
-  RoleToggle,
-  type AccountRole,
-} from "@/components/auth/AuthControls";
-import { AuthScaffold, AuthTitle } from "@/components/auth/AuthScaffold";
-import { OwnerButton, OwnerText } from "@/components/ui/owner-ui";
-import { mockAccounts } from "@/features/auth/mockAccounts";
-import { loginMockAccount } from "@/features/auth/mockSession";
+import { AuthField, InlineLink } from '@/components/auth/AuthControls';
+import { AuthScaffold, AuthTitle } from '@/components/auth/AuthScaffold';
+import { OwnerButton, OwnerText } from '@/components/ui/owner-ui';
+import { ApiError } from '@/data/api/client';
+import { useAuth } from '@/features/auth/AuthContext';
+import { normalizePhone } from '@/models/auth';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [role, setRole] = useState<AccountRole>("player");
-  const [phone, setPhone] = useState(mockAccounts[0].phone);
-  const [password, setPassword] = useState(mockAccounts[0].password);
-  const [error, setError] = useState("");
-  const demoAccount = mockAccounts.find((account) => account.role === role)!;
+  const { login } = useAuth();
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const selectRole = (nextRole: AccountRole) => {
-    const account = mockAccounts.find((item) => item.role === nextRole)!;
-    setRole(nextRole);
-    setPhone(account.phone);
-    setPassword(account.password);
-    setError("");
-  };
-
-  const login = () => {
-    const account = loginMockAccount(phone, password, role);
-    if (!account) {
-      setError("Số điện thoại hoặc mật khẩu không đúng với vai trò đã chọn.");
+  const onLogin = async () => {
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone || !password) {
+      setError('Vui lòng nhập số điện thoại và mật khẩu.');
       return;
     }
-    if (account.role === "owner") {
-      if (account.approvalStatus === "pending") {
-        router.push("/owner-setup/pending");
-        return;
+
+    setSubmitting(true);
+    setError('');
+    try {
+      const user = await login({ phone: normalizedPhone, password });
+      if (user.role === 'owner') {
+        router.replace('/(owner)/dashboard');
+      } else {
+        router.replace('/(guest)/explore');
       }
-      if (account.approvalStatus === "rejected") {
-        setError(
-          "Tài khoản của bạn đã bị từ chối duyệt. Bạn không có quyền sử dụng ứng dụng."
-        );
-        return;
+    } catch (e) {
+      if (e instanceof ApiError) {
+        if (e.status === 401) setError('Số điện thoại hoặc mật khẩu không đúng.');
+        else if (e.status === 403) setError(e.message || 'Tài khoản không hoạt động.');
+        else if (e.status === 400) setError(e.message || 'Thông tin đăng nhập không hợp lệ.');
+        else setError(e.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
+      } else {
+        setError('Đăng nhập thất bại. Vui lòng thử lại.');
       }
-      router.replace("/(owner)/dashboard");
-      return;
+    } finally {
+      setSubmitting(false);
     }
-    router.replace("/(guest)/explore");
   };
 
   return (
     <AuthScaffold
       footer={
         <>
-          <OwnerButton title="Đăng nhập" onPress={login} />
+          <OwnerButton
+            title={submitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
+            onPress={() => void onLogin()}
+            disabled={submitting}
+          />
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push("/register")}
+            onPress={() => router.push('/register')}
             className="min-h-12 flex-row items-center justify-center gap-1"
           >
             <OwnerText tone="muted">Chưa có tài khoản?</OwnerText>
@@ -78,41 +77,34 @@ export default function LoginPage() {
         description="Chào bạn quay lại. Đăng nhập để đặt sân và xem lịch của bạn."
       />
       <View className="mt-8 gap-5">
-        <RoleToggle selected={role} onSelect={selectRole} />
-        <OwnerText tone="muted" className="-mt-3 text-caption">
-          {role === "owner"
-            ? "Demo: 0909 123 457 (Đã duyệt) | 0909 123 458 (Chờ duyệt) / owner123"
-            : `Demo: ${demoAccount.phone} / ${demoAccount.password}`}
-        </OwnerText>
         <AuthField
           label="Số điện thoại"
-          icon={{ ios: "phone", android: "phone", web: "phone" }}
+          icon={{ ios: 'phone', android: 'phone', web: 'phone' }}
           value={phone}
           onChangeText={(value) => {
             setPhone(value);
-            setError("");
+            setError('');
           }}
           keyboardType="phone-pad"
+          autoComplete="tel"
+          editable={!submitting}
         />
         <AuthField
           label="Mật khẩu"
-          icon={{ ios: "lock", android: "lock", web: "lock" }}
-          trailingIcon={{
-            ios: "eye.slash",
-            android: "visibility_off",
-            web: "visibility_off",
-          }}
+          icon={{ ios: 'lock', android: 'lock', web: 'lock' }}
+          trailingIcon={{ ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }}
           value={password}
           onChangeText={(value) => {
             setPassword(value);
-            setError("");
+            setError('');
           }}
           secureTextEntry
+          editable={!submitting}
         />
         {error ? <OwnerText className="text-error">{error}</OwnerText> : null}
         <Pressable
           accessibilityRole="button"
-          onPress={() => router.push("/forgot-password")}
+          onPress={() => router.push('/forgot-password')}
           className="self-end px-1 py-1"
         >
           <InlineLink>Quên mật khẩu?</InlineLink>

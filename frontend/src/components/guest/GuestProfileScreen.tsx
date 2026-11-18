@@ -5,19 +5,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GuestTabBar } from "@/components/guest/GuestTabBar";
 import { OwnerButton, OwnerText } from "@/components/ui/owner-ui";
-import { getMockAccount, logoutMockAccount } from "@/features/auth/mockSession";
+import { useAuth } from "@/features/auth/AuthContext";
 import { colors } from "@/shared/theme";
 
 export function GuestProfileScreen() {
   const router = useRouter();
-  const account = getMockAccount();
-  const isPlayer = account?.role === "player";
+  const { user, logout } = useAuth();
+  const isSignedIn = !!user;
 
   return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
-      className="flex-1 bg-guest-background"
-    >
+    <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-guest-background">
       <View className="w-full max-w-[560px] flex-1 self-center px-4 pb-6 pt-3">
         <OwnerText className="font-familjen-bold text-headline-lg text-guest-on-surface">
           Tài khoản
@@ -25,46 +22,34 @@ export function GuestProfileScreen() {
         <View className="mt-8 items-center gap-4 rounded-3xl border border-guest-outline bg-guest-surface px-5 py-7">
           <View className="h-[76px] w-[76px] items-center justify-center rounded-full bg-guest-selected">
             <SymbolView
-              name={{
-                ios: "person.crop.circle",
-                android: "account_circle",
-                web: "account_circle",
-              }}
+              name={{ ios: "person.crop.circle", android: "account_circle", web: "account_circle" }}
               size={42}
               tintColor={colors.guestSelectedInk}
             />
           </View>
           <View className="items-center gap-1">
             <OwnerText className="font-familjen-semibold text-title text-guest-on-surface">
-              {isPlayer ? account.name : "Chào mừng bạn"}
+              {isSignedIn ? user.fullName : "Chào mừng bạn"}
             </OwnerText>
             <OwnerText className="text-center text-body text-guest-on-surface-variant">
-              {isPlayer
-                ? `Đã đăng nhập · ${account.phone}`
+              {isSignedIn
+                ? `Đã đăng nhập · ${user.phone}`
                 : "Đăng nhập hoặc tạo tài khoản để quản lý lịch đặt sân."}
             </OwnerText>
           </View>
           <View className="mt-2 w-full gap-3">
-            {isPlayer ? (
+            {isSignedIn ? (
               <OwnerButton
                 title="Đăng xuất"
                 outline
                 onPress={() => {
-                  logoutMockAccount();
-                  router.replace("/login");
+                  void logout().then(() => router.replace("/login"));
                 }}
               />
             ) : (
               <>
-                <OwnerButton
-                  title="Đăng nhập"
-                  onPress={() => router.push("/login")}
-                />
-                <OwnerButton
-                  title="Tạo tài khoản"
-                  outline
-                  onPress={() => router.push("/register")}
-                />
+                <OwnerButton title="Đăng nhập" onPress={() => router.push("/login")} />
+                <OwnerButton title="Tạo tài khoản" outline onPress={() => router.push("/register")} />
               </>
             )}
           </View>

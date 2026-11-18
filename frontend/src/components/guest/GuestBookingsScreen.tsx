@@ -5,18 +5,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GuestTabBar } from "@/components/guest/GuestTabBar";
 import { OwnerButton, OwnerText } from "@/components/ui/owner-ui";
-import { getMockAccount } from "@/features/auth/mockSession";
+import { useAuth } from "@/features/auth/AuthContext";
 import { colors } from "@/shared/theme";
 
 export function GuestBookingsScreen() {
   const router = useRouter();
-  const isPlayer = getMockAccount()?.role === "player";
+  const { user } = useAuth();
+  const isPlayer = user?.role === "player";
 
   return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
-      className="flex-1 bg-guest-background"
-    >
+    <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-guest-background">
       <ScrollView
         contentContainerClassName="w-full max-w-[560px] self-center grow px-4 pb-6 pt-3"
         showsVerticalScrollIndicator={false}
@@ -27,11 +25,7 @@ export function GuestBookingsScreen() {
         <View className="mt-7 flex-1 items-center justify-center gap-4 pb-10">
           <View className="h-[92px] w-[92px] items-center justify-center rounded-full bg-guest-selected">
             <SymbolView
-              name={{
-                ios: "calendar",
-                android: "calendar_month",
-                web: "calendar_month",
-              }}
+              name={{ ios: "calendar", android: "calendar_month", web: "calendar_month" }}
               size={42}
               tintColor={colors.guestSelectedInk}
             />
@@ -47,10 +41,7 @@ export function GuestBookingsScreen() {
             </OwnerText>
           </View>
           <View className="mt-2 w-full max-w-[320px] gap-3">
-            <OwnerButton
-              title="Khám phá sân"
-              onPress={() => router.replace("/explore")}
-            />
+            <OwnerButton title="Khám phá sân" onPress={() => router.replace("/explore")} />
             {!isPlayer ? (
               <Pressable
                 accessibilityRole="button"
