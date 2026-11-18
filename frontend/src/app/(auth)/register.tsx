@@ -123,7 +123,6 @@ export default function RegisterPage() {
             label="Số điện thoại"
             icon={{ ios: 'phone', android: 'phone', web: 'phone' }}
             floatingLabel={false}
-            helper="Nhập số điện thoại Việt Nam để đăng nhập."
             value={phone}
             onChangeText={(v) => {
               setPhone(v);
@@ -138,6 +137,8 @@ export default function RegisterPage() {
         <View className="gap-1">
           <AuthField
             label="Mật khẩu"
+            icon={{ ios: 'lock', android: 'lock', web: 'lock' }}
+            trailingIcon={{ ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }}
             floatingLabel={false}
             helper="Tối thiểu 6 ký tự."
             value={password}

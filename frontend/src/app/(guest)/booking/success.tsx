@@ -11,6 +11,7 @@ import {
   bookingTimeLabel,
 } from '@/features/booking/bookingView';
 import type { ApiBooking } from '@/models/booking';
+import { useRealtimeRefresh } from '@/features/realtime/RealtimeProvider';
 import { formatMoney } from '@/shared/format';
 
 export default function BookingSuccessPage() {
@@ -19,6 +20,7 @@ export default function BookingSuccessPage() {
   const bookingId = Number(params.bookingId);
   const [booking, setBooking] = useState<ApiBooking | null>(null);
   const [error, setError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
 
   const validBookingId = Number.isInteger(bookingId) && bookingId > 0;
 
@@ -42,7 +44,13 @@ export default function BookingSuccessPage() {
     return () => {
       cancelled = true;
     };
-  }, [bookingId, validBookingId]);
+  }, [bookingId, validBookingId, reloadKey]);
+
+  useRealtimeRefresh(
+    ['booking.payment_reported', 'booking.status_changed'],
+    () => setReloadKey((value) => value + 1),
+    validBookingId,
+  );
 
   const confirmed = booking?.status === 'confirmed';
   const cancelled = booking?.status === 'cancelled';

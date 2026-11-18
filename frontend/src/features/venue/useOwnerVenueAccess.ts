@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState } from 'react-native';
 
 import { venueRepository } from '@/data/repositories/venueRepository';
+import { useRealtimeRefresh } from '@/features/realtime/RealtimeProvider';
 import {
   resolveOwnerVenueAccessState,
   type OwnerVenueAccessState,
@@ -70,13 +70,12 @@ export function useOwnerVenueAccess(options: Options = {}) {
     return () => clearTimeout(t);
   }, [enabled, refresh]);
 
-  useEffect(() => {
-    if (!enabled || !refreshOnForeground) return;
-    const sub = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') void refresh();
-    });
-    return () => sub.remove();
-  }, [enabled, refresh, refreshOnForeground]);
+  useRealtimeRefresh(
+    ['owner.venue_approved', 'owner.venue_reviewed'],
+    () => void refresh(),
+    enabled,
+    refreshOnForeground,
+  );
 
   const resolvedState: OwnerVenueAccessState = useMemo(
     () => resolveOwnerVenueAccessState(venues),

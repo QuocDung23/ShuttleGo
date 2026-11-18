@@ -3,6 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { bookingRepository } from "@/data/repositories/bookingRepository";
 import { venueRepository } from "@/data/repositories/venueRepository";
 import { useOwnerVenueAccess } from "@/features/venue/useOwnerVenueAccess";
+import {
+  useRealtimeRefresh,
+  useScheduleSubscription,
+} from "@/features/realtime/RealtimeProvider";
 import type { ApiBooking } from "@/models/booking";
 import type { BookingDetail, ScheduleCourt, ScheduleDate, ScheduleSlot } from "@/models/schedule";
 import {
@@ -81,6 +85,7 @@ export function useScheduleViewModel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isClosed, setIsClosed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const selectedDate = dates[selectedDateIndex]?.label;
   const selectedDayOfWeek = dates[selectedDateIndex]?.dayOfWeek;
@@ -90,6 +95,10 @@ export function useScheduleViewModel() {
     date.setDate(today.getDate() + selectedDateIndex);
     return toDateKey(date);
   }, [selectedDateIndex]);
+
+  const requestReload = useCallback(() => setReloadKey((value) => value + 1), []);
+  useScheduleSubscription(primaryVenue?.id, dateKey, requestReload);
+  useRealtimeRefresh(["booking.payment_reported"], requestReload);
 
   useEffect(() => {
     let active = true;
@@ -162,7 +171,7 @@ export function useScheduleViewModel() {
     return () => {
       active = false;
     };
-  }, [accessError, accessLoading, primaryVenue, dateKey, selectedDayOfWeek]);
+  }, [accessError, accessLoading, primaryVenue, dateKey, selectedDayOfWeek, reloadKey]);
 
   const selectDate = useCallback((index: number) => {
     setSelectedDateIndex(index);

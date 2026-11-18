@@ -1,13 +1,14 @@
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { OwnerButton, OwnerText } from '@/components/ui/owner-ui';
-import { ApiError } from '@/data/api/client';
-import { bookingRepository } from '@/data/repositories/bookingRepository';
-import { venueRepository } from '@/data/repositories/venueRepository';
-import { useAuth } from '@/features/auth/AuthContext';
+import { ScheduleLegend } from "@/components/schedule/ScheduleLegend";
+import { OwnerButton, OwnerText } from "@/components/ui/owner-ui";
+import { ApiError } from "@/data/api/client";
+import { bookingRepository } from "@/data/repositories/bookingRepository";
+import { venueRepository } from "@/data/repositories/venueRepository";
+import { useAuth } from "@/features/auth/AuthContext";
 import {
   buildHourSlots,
   calculateBookingTotal,
@@ -16,12 +17,13 @@ import {
   isContiguousIndexes,
   isSlotOccupied,
   priceForSlot,
-} from '@/features/booking/pricing';
-import type { BookingHold, VenueAvailability } from '@/models/booking';
-import type { Venue } from '@/models/venue';
-import { formatBookingDate, formatMoney, toDateKey } from '@/shared/format';
+} from "@/features/booking/pricing";
+import { useScheduleSubscription } from "@/features/realtime/RealtimeProvider";
+import type { BookingHold, VenueAvailability } from "@/models/booking";
+import type { Venue } from "@/models/venue";
+import { formatBookingDate, formatMoney, toDateKey } from "@/shared/format";
 
-const DAY_LABELS = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+const DAY_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 function buildDays(count = 7) {
   const result: { key: string; label: string; sub: string }[] = [];
@@ -31,8 +33,8 @@ function buildDays(count = 7) {
     date.setDate(today.getDate() + i);
     result.push({
       key: toDateKey(date),
-      label: i === 0 ? 'Hôm nay' : DAY_LABELS[date.getDay()],
-      sub: `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`,
+      label: i === 0 ? "Hôm nay" : DAY_LABELS[date.getDay()],
+      sub: `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}`,
     });
   }
   return result;
@@ -54,22 +56,37 @@ export default function BookingDetailsPage() {
   const [selectedDate, setSelectedDate] = useState(days[0].key);
 
   const [venue, setVenue] = useState<Venue | null>(null);
-  const [availability, setAvailability] = useState<VenueAvailability | null>(null);
+  const [availability, setAvailability] = useState<VenueAvailability | null>(
+    null,
+  );
   const [loadingVenue, setLoadingVenue] = useState(true);
   const [loadingAvailability, setLoadingAvailability] = useState(false);
-  const [venueError, setVenueError] = useState('');
-  const [availabilityError, setAvailabilityError] = useState('');
+  const [venueError, setVenueError] = useState("");
+  const [availabilityError, setAvailabilityError] = useState("");
 
   const [selectedCourtId, setSelectedCourtId] = useState<number | null>(null);
   const [selectedSlotIndexes, setSelectedSlotIndexes] = useState<number[]>([]);
   const [activeHold, setActiveHold] = useState<BookingHold | null>(null);
   const [holdUpdating, setHoldUpdating] = useState(false);
-  const [clockNow, setClockNow] = useState(Date.now());
+  const [clockNow, setClockNow] = useState(() => Date.now());
   const holdRequestRef = useRef(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
+  const [submitError, setSubmitError] = useState("");
+
+  const applyHold = useCallback((hold: BookingHold | null) => {
+    setActiveHold((previous) =>
+      previous?.id === hold?.id &&
+      previous?.expiresAt === hold?.expiresAt &&
+      previous?.courtId === hold?.courtId &&
+      previous?.bookingDate === hold?.bookingDate &&
+      previous?.startTime === hold?.startTime &&
+      previous?.endTime === hold?.endTime
+        ? previous
+        : hold,
+    );
+  }, []);
 
   // Venue detail (name, address, bank info, price rules) is loaded once.
   useEffect(() => {
@@ -78,11 +95,12 @@ export default function BookingDetailsPage() {
     (async () => {
       try {
         setLoadingVenue(true);
-        setVenueError('');
+        setVenueError("");
         const data = await venueRepository.get(venueId);
         if (!cancelled) setVenue(data);
       } catch (error) {
-        if (!cancelled) setVenueError(errorMessage(error, 'Không thể tải thông tin sân.'));
+        if (!cancelled)
+          setVenueError(errorMessage(error, "Không thể tải thông tin sân."));
       } finally {
         if (!cancelled) setLoadingVenue(false);
       }
@@ -99,9 +117,12 @@ export default function BookingDetailsPage() {
     (async () => {
       try {
         setLoadingAvailability(true);
-        setAvailabilityError('');
+        setAvailabilityError("");
         setSelectedSlotIndexes([]);
-        const data = await bookingRepository.getVenueAvailability(venueId, selectedDate);
+        const data = await bookingRepository.getVenueAvailability(
+          venueId,
+          selectedDate,
+        );
         if (cancelled) return;
         setAvailability(data);
         setSelectedCourtId((previous) =>
@@ -111,7 +132,9 @@ export default function BookingDetailsPage() {
         );
       } catch (error) {
         if (!cancelled) {
-          setAvailabilityError(errorMessage(error, 'Không thể tải lịch trống.'));
+          setAvailabilityError(
+            errorMessage(error, "Không thể tải lịch trống."),
+          );
           setAvailability(null);
         }
       } finally {
@@ -125,64 +148,38 @@ export default function BookingDetailsPage() {
 
   // Restore this player's selection after reopening the booking screen.
   useEffect(() => {
-    if (status !== 'signedIn' || user?.role !== 'player') {
-      setActiveHold(null);
+    if (status !== "signedIn" || user?.role !== "player") {
+      queueMicrotask(() => setActiveHold(null));
       return;
     }
     let cancelled = false;
-    bookingRepository.getMyHold().then((hold) => {
-      if (!cancelled) {
-        setActiveHold((previous) =>
-          previous?.id === hold?.id &&
-            previous?.expiresAt === hold?.expiresAt &&
-            previous?.courtId === hold?.courtId &&
-            previous?.bookingDate === hold?.bookingDate &&
-            previous?.startTime === hold?.startTime &&
-            previous?.endTime === hold?.endTime
-            ? previous
-            : hold,
-        );
-      }
-    }).catch(() => {
-      if (!cancelled) setActiveHold(null);
-    });
+    bookingRepository
+      .getMyHold()
+      .then((hold) => {
+        if (!cancelled) applyHold(hold);
+      })
+      .catch(() => {
+        if (!cancelled) setActiveHold(null);
+      });
     return () => {
       cancelled = true;
     };
-  }, [status, user?.id, user?.role]);
+  }, [applyHold, status, user?.id, user?.role]);
 
-  // Refresh availability and this player's hold so other devices stay in sync.
-  useEffect(() => {
-    if (!validVenueId) return;
-    let cancelled = false;
-    const timer = setInterval(() => {
-      void bookingRepository.getVenueAvailability(venueId, selectedDate)
-        .then((data) => {
-          if (!cancelled) setAvailability(data);
-        })
-        .catch(() => undefined);
-      if (status === 'signedIn' && user?.role === 'player') {
-        void bookingRepository.getMyHold().then((hold) => {
-          if (!cancelled) {
-            setActiveHold((previous) =>
-              previous?.id === hold?.id &&
-                previous?.expiresAt === hold?.expiresAt &&
-                previous?.courtId === hold?.courtId &&
-                previous?.bookingDate === hold?.bookingDate &&
-                previous?.startTime === hold?.startTime &&
-                previous?.endTime === hold?.endTime
-                ? previous
-                : hold,
-            );
-          }
-        }).catch(() => undefined);
+  useScheduleSubscription(
+    validVenueId ? venueId : undefined,
+    selectedDate,
+    () => {
+      setReloadKey((value) => value + 1);
+      if (status === "signedIn" && user?.role === "player") {
+        void bookingRepository
+          .getMyHold()
+          .then(applyHold)
+          .catch(() => undefined);
       }
-    }, 3000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [venueId, validVenueId, selectedDate, status, user?.id, user?.role]);
+    },
+    status === "signedIn",
+  );
 
   useEffect(() => {
     if (!activeHold) return;
@@ -191,53 +188,85 @@ export default function BookingDetailsPage() {
   }, [activeHold]);
 
   const slots = useMemo(() => {
-    if (!availability?.isOpen || !availability.openTime || !availability.closeTime) return [];
+    if (
+      !availability?.isOpen ||
+      !availability.openTime ||
+      !availability.closeTime
+    )
+      return [];
     return buildHourSlots(availability.openTime, availability.closeTime);
   }, [availability]);
 
-  const selectedCourt = availability?.courts.find((court) => court.id === selectedCourtId);
-  const occupiedRanges = useMemo(() => selectedCourt?.occupiedRanges ?? [], [selectedCourt]);
-  const heldRanges = useMemo(() => selectedCourt?.heldRanges ?? [], [selectedCourt]);
-  const checkoutRanges = useMemo(() => selectedCourt?.checkoutRanges ?? [], [selectedCourt]);
+  const selectedCourt = availability?.courts.find(
+    (court) => court.id === selectedCourtId,
+  );
+  const occupiedRanges = useMemo(
+    () => selectedCourt?.occupiedRanges ?? [],
+    [selectedCourt],
+  );
+  const heldRanges = useMemo(
+    () => selectedCourt?.heldRanges ?? [],
+    [selectedCourt],
+  );
+  const checkoutRanges = useMemo(
+    () => selectedCourt?.checkoutRanges ?? [],
+    [selectedCourt],
+  );
   const ownHoldMatches = Boolean(
     activeHold &&
-      activeHold.courtId === selectedCourtId &&
-      activeHold.bookingDate === selectedDate &&
-      activeHold.expiresAt &&
-      new Date(activeHold.expiresAt).getTime() > clockNow,
+    activeHold.courtId === selectedCourtId &&
+    activeHold.bookingDate === selectedDate &&
+    activeHold.expiresAt &&
+    new Date(activeHold.expiresAt).getTime() > clockNow,
   );
-  const holdRemainingMs = activeHold ? new Date(activeHold.expiresAt).getTime() - clockNow : 0;
+  const holdRemainingMs = activeHold
+    ? new Date(activeHold.expiresAt).getTime() - clockNow
+    : 0;
 
   useEffect(() => {
     if (holdRemainingMs > 0 || !activeHold) return;
-    setActiveHold(null);
-    setSelectedSlotIndexes([]);
-    setReloadKey((value) => value + 1);
+    queueMicrotask(() => {
+      setActiveHold(null);
+      setSelectedSlotIndexes([]);
+      setReloadKey((value) => value + 1);
+    });
   }, [activeHold, holdRemainingMs]);
 
   // Restore the selected range represented by the server-side hold.
   useEffect(() => {
-    if (!activeHold) {
-      setSelectedSlotIndexes([]);
-      return;
-    }
-    if (
-      activeHold.bookingDate !== selectedDate ||
-      !availability?.courts.some((court) => court.id === activeHold.courtId)
-    ) {
-      setSelectedSlotIndexes([]);
-      return;
-    }
-    if (selectedCourtId !== activeHold.courtId) setSelectedCourtId(activeHold.courtId);
-    if (slots.length === 0) return;
-    const indexes = slots
-      .map((slot, index) => ({ slot, index }))
-      .filter(({ slot }) => slot.startTime >= activeHold.startTime && slot.endTime <= activeHold.endTime)
-      .map(({ index }) => index);
-    if (indexes.length > 0) {
-      setSelectedCourtId(activeHold.courtId);
-      setSelectedSlotIndexes(indexes);
-    }
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (!activeHold) {
+        setSelectedSlotIndexes([]);
+        return;
+      }
+      if (
+        activeHold.bookingDate !== selectedDate ||
+        !availability?.courts.some((court) => court.id === activeHold.courtId)
+      ) {
+        setSelectedSlotIndexes([]);
+        return;
+      }
+      if (selectedCourtId !== activeHold.courtId)
+        setSelectedCourtId(activeHold.courtId);
+      if (slots.length === 0) return;
+      const indexes = slots
+        .map((slot, index) => ({ slot, index }))
+        .filter(
+          ({ slot }) =>
+            slot.startTime >= activeHold.startTime &&
+            slot.endTime <= activeHold.endTime,
+        )
+        .map(({ index }) => index);
+      if (indexes.length > 0) {
+        setSelectedCourtId(activeHold.courtId);
+        setSelectedSlotIndexes(indexes);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [activeHold, availability, selectedDate, selectedCourtId, slots]);
 
   const selectableIndexes = useMemo(
@@ -249,14 +278,27 @@ export default function BookingDetailsPage() {
             priceForSlot(venue?.priceRules ?? [], slot) !== null &&
             !isSlotOccupied(slot, occupiedRanges) &&
             !isSlotOccupied(slot, checkoutRanges) &&
-            (!isSlotOccupied(slot, heldRanges) || (ownHoldMatches && isSlotOccupied(slot, [activeHold!]))),
+            (!isSlotOccupied(slot, heldRanges) ||
+              (ownHoldMatches && isSlotOccupied(slot, [activeHold!]))),
         )
         .map(({ index }) => index),
-    [slots, venue, occupiedRanges, heldRanges, checkoutRanges, ownHoldMatches, activeHold],
+    [
+      slots,
+      venue,
+      occupiedRanges,
+      heldRanges,
+      checkoutRanges,
+      ownHoldMatches,
+      activeHold,
+    ],
   );
 
   const selectedSlots = useMemo(
-    () => [...selectedSlotIndexes].sort((a, b) => a - b).map((index) => slots[index]).filter(Boolean),
+    () =>
+      [...selectedSlotIndexes]
+        .sort((a, b) => a - b)
+        .map((index) => slots[index])
+        .filter(Boolean),
     [selectedSlotIndexes, slots],
   );
 
@@ -275,16 +317,16 @@ export default function BookingDetailsPage() {
   const selectedDay = days.find((day) => day.key === selectedDate) ?? days[0];
   const summary =
     selectedSlots.length > 0
-      ? `${selectedDay.label === 'Hôm nay' ? formatBookingDate(selectedDate) : selectedDay.label} · ${selectedCourt?.name ?? 'Sân'} · ${selectedSlots.length} giờ`
-      : 'Chưa chọn giờ';
+      ? `${selectedDay.label === "Hôm nay" ? formatBookingDate(selectedDate) : selectedDay.label} · ${selectedCourt?.name ?? "Sân"} · ${selectedSlots.length} giờ`
+      : "Chưa chọn giờ";
   const timeRange =
     selectedSlots.length > 0
       ? `${selectedSlots[0].startTime.slice(0, 5)} – ${selectedSlots[selectedSlots.length - 1].endTime.slice(0, 5)}`
-      : '';
+      : "";
 
   const redirectToLogin = () => {
     router.push({
-      pathname: '/login',
+      pathname: "/login",
       params: { redirect: `/(guest)/booking?venueId=${venueId}` },
     });
   };
@@ -296,7 +338,7 @@ export default function BookingDetailsPage() {
     setActiveHold(null);
     setSelectedSlotIndexes([]);
     try {
-      if (status === 'signedIn' && user?.role === 'player') {
+      if (status === "signedIn" && user?.role === "player") {
         await bookingRepository.releaseMyHold();
       }
     } catch {
@@ -308,12 +350,18 @@ export default function BookingDetailsPage() {
   };
 
   const toggleSlot = async (index: number) => {
-    if (!selectableIndexes.includes(index) || holdRequestRef.current || submitting || !selectedCourtId) return;
-    if (status === 'signedOut') {
+    if (
+      !selectableIndexes.includes(index) ||
+      holdRequestRef.current ||
+      submitting ||
+      !selectedCourtId
+    )
+      return;
+    if (status === "signedOut") {
       redirectToLogin();
       return;
     }
-    if (status !== 'signedIn' || user?.role !== 'player') return;
+    if (status !== "signedIn" || user?.role !== "player") return;
 
     const previous = [...selectedSlotIndexes];
     let next: number[];
@@ -326,13 +374,15 @@ export default function BookingDetailsPage() {
       const max = Math.max(...previous);
       if (index === min - 1 || index === max + 1) {
         const combined = [...previous, index];
-        next = isContiguousIndexes(combined) ? combined.sort((a, b) => a - b) : [index];
+        next = isContiguousIndexes(combined)
+          ? combined.sort((a, b) => a - b)
+          : [index];
       } else {
         next = [index];
       }
     }
 
-    setSubmitError('');
+    setSubmitError("");
     holdRequestRef.current = true;
     setHoldUpdating(true);
     try {
@@ -354,7 +404,9 @@ export default function BookingDetailsPage() {
         setSelectedSlotIndexes(ordered);
       }
     } catch (error) {
-      setSubmitError(errorMessage(error, 'Không thể giữ khung giờ. Vui lòng thử lại.'));
+      setSubmitError(
+        errorMessage(error, "Không thể giữ khung giờ. Vui lòng thử lại."),
+      );
       setReloadKey((value) => value + 1);
     } finally {
       holdRequestRef.current = false;
@@ -364,7 +416,7 @@ export default function BookingDetailsPage() {
 
   const onSubmit = async () => {
     if (submitting || holdUpdating || holdRequestRef.current) return;
-    if (status === 'signedOut' || !user) {
+    if (status === "signedOut" || !user) {
       redirectToLogin();
       return;
     }
@@ -376,10 +428,11 @@ export default function BookingDetailsPage() {
       !activeHold ||
       !ownHoldMatches ||
       holdRemainingMs <= 0
-    ) return;
+    )
+      return;
 
     setSubmitting(true);
-    setSubmitError('');
+    setSubmitError("");
     try {
       const booking = await bookingRepository.create({
         courtId: selectedCourtId,
@@ -389,10 +442,10 @@ export default function BookingDetailsPage() {
         startTime: selectedSlots[0].startTime,
         endTime: selectedSlots[selectedSlots.length - 1].endTime,
         totalAmount: total,
-        paymentMethod: 'bank_transfer',
+        paymentMethod: "bank_transfer",
       });
       router.push({
-        pathname: '/(guest)/booking/confirm',
+        pathname: "/(guest)/booking/confirm",
         params: { bookingId: String(booking.id) },
       });
     } catch (error) {
@@ -401,14 +454,16 @@ export default function BookingDetailsPage() {
         return;
       }
       if (error instanceof ApiError && error.status === 409) {
-        setSubmitError('Khung giờ vừa thay đổi. Vui lòng chọn giờ khác.');
+        setSubmitError("Khung giờ vừa thay đổi. Vui lòng chọn giờ khác.");
         setSelectedSlotIndexes([]);
         setActiveHold(null);
         await bookingRepository.releaseMyHold().catch(() => undefined);
         setReloadKey((value) => value + 1);
         return;
       }
-      setSubmitError(errorMessage(error, 'Đặt sân thất bại. Vui lòng thử lại.'));
+      setSubmitError(
+        errorMessage(error, "Đặt sân thất bại. Vui lòng thử lại."),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -416,16 +471,22 @@ export default function BookingDetailsPage() {
 
   if (!validVenueId) {
     return (
-      <SafeAreaView edges={['top', 'bottom']} className="flex-1 items-center justify-center bg-guest-background px-6">
+      <SafeAreaView
+        edges={["top", "bottom"]}
+        className="flex-1 items-center justify-center bg-guest-background px-6"
+      >
         <OwnerText className="text-center text-body text-guest-on-surface-variant">
-          {venueError || 'Không tìm thấy sân.'}
+          {venueError || "Không tìm thấy sân."}
         </OwnerText>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-guest-background">
+    <SafeAreaView
+      edges={["top", "bottom"]}
+      className="flex-1 bg-guest-background"
+    >
       {/* Header */}
       <View className="flex-row items-center px-2 pb-1 pt-1">
         <Pressable
@@ -434,12 +495,15 @@ export default function BookingDetailsPage() {
           onPress={() => router.back()}
           className="h-11 w-11 items-center justify-center rounded-full"
         >
-          <OwnerText style={{ fontSize: 26, lineHeight: 26 }} className="text-guest-on-surface-variant">
+          <OwnerText
+            style={{ fontSize: 26, lineHeight: 26 }}
+            className="text-guest-on-surface-variant"
+          >
             ‹
           </OwnerText>
         </Pressable>
         <OwnerText className="ml-1 flex-1 font-familjen-bold text-title text-guest-on-surface">
-          {venue?.name ?? 'Đặt sân'}
+          {venue?.name ?? "Đặt sân"}
         </OwnerText>
       </View>
 
@@ -449,34 +513,14 @@ export default function BookingDetailsPage() {
         showsVerticalScrollIndicator={false}
       >
         {/* Venue info */}
-        <View className="gap-1">
-          <OwnerText className="font-familjen-bold text-title text-guest-on-surface">
-            {loadingVenue ? 'Đang tải...' : (venue?.name ?? 'Sân')}
-          </OwnerText>
-          {venueError ? (
-            <OwnerText className="text-body text-error">{venueError}</OwnerText>
-          ) : (
-            <>
-              <OwnerText className="text-body text-guest-on-surface-variant">
-                {[venue?.address, venue?.district, venue?.city].filter(Boolean).join(', ')}
-              </OwnerText>
-              <OwnerText className="text-body text-guest-on-surface-variant">
-                {availability?.isOpen && availability.openTime && availability.closeTime
-                  ? `Mở cửa ${availability.openTime.slice(0, 5)} – ${availability.closeTime.slice(0, 5)}`
-                  : 'Sân không mở cửa ngày này'}{' '}
-                · {availability?.courts.length ?? 0} sân
-              </OwnerText>
-            </>
-          )}
-        </View>
-
         {!bankReady && !loadingVenue && venue ? (
           <View className="rounded-2xl border border-guest-outline bg-guest-surface p-4">
             <OwnerText className="text-body text-guest-on-surface">
               Sân chưa cấu hình thông tin nhận thanh toán.
             </OwnerText>
             <OwnerText className="mt-1 text-body-sm text-guest-on-surface-variant">
-              Vui lòng liên hệ sân qua số {venue.phone ?? 'đã đăng trên trang sân'} để được hỗ trợ đặt sân.
+              Vui lòng liên hệ sân qua số{" "}
+              {venue.phone ?? "đã đăng trên trang sân"} để được hỗ trợ đặt sân.
             </OwnerText>
           </View>
         ) : null}
@@ -486,7 +530,11 @@ export default function BookingDetailsPage() {
           <OwnerText className="font-familjen-semibold text-label text-guest-on-surface">
             Chọn ngày
           </OwnerText>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerClassName="gap-2"
+          >
             {days.map((day) => {
               const active = day.key === selectedDate;
               return (
@@ -500,19 +548,23 @@ export default function BookingDetailsPage() {
                     void releaseHold();
                   }}
                   className={`min-w-[72px] items-center rounded-xl border px-3 py-2 ${
-                    active ? 'border-primary bg-primary' : 'border-guest-outline bg-guest-surface'
+                    active
+                      ? "border-primary bg-primary"
+                      : "border-guest-outline bg-guest-surface"
                   }`}
                 >
                   <OwnerText
                     className={`text-caption font-familjen-medium ${
-                      active ? 'text-on-primary' : 'text-guest-on-surface-variant'
+                      active
+                        ? "text-on-primary"
+                        : "text-guest-on-surface-variant"
                     }`}
                   >
                     {day.label}
                   </OwnerText>
                   <OwnerText
                     className={`font-familjen-semibold text-label ${
-                      active ? 'text-on-primary' : 'text-guest-on-surface'
+                      active ? "text-on-primary" : "text-guest-on-surface"
                     }`}
                   >
                     {day.sub}
@@ -529,15 +581,23 @@ export default function BookingDetailsPage() {
             Chọn sân
           </OwnerText>
           {loadingAvailability ? (
-            <OwnerText className="text-body text-guest-on-surface-variant">Đang tải sân...</OwnerText>
+            <OwnerText className="text-body text-guest-on-surface-variant">
+              Đang tải sân...
+            </OwnerText>
           ) : availabilityError ? (
-            <OwnerText className="text-body text-error">{availabilityError}</OwnerText>
+            <OwnerText className="text-body text-error">
+              {availabilityError}
+            </OwnerText>
           ) : (availability?.courts.length ?? 0) === 0 ? (
             <OwnerText className="text-body text-guest-on-surface-variant">
               Không có sân nào hoạt động trong ngày này.
             </OwnerText>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-2">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerClassName="gap-2"
+            >
               {availability?.courts.map((court) => {
                 const active = court.id === selectedCourtId;
                 return (
@@ -551,12 +611,14 @@ export default function BookingDetailsPage() {
                       void releaseHold();
                     }}
                     className={`min-w-[72px] items-center rounded-xl border px-4 py-2 ${
-                      active ? 'border-shuttle bg-shuttle/15' : 'border-guest-outline bg-guest-surface'
+                      active
+                        ? "border-shuttle bg-shuttle/15"
+                        : "border-guest-outline bg-guest-surface"
                     }`}
                   >
                     <OwnerText
                       className={`font-familjen-semibold text-label ${
-                        active ? 'text-shuttle' : 'text-guest-on-surface'
+                        active ? "text-shuttle" : "text-guest-on-surface"
                       }`}
                     >
                       {court.name}
@@ -581,8 +643,8 @@ export default function BookingDetailsPage() {
           {slots.length === 0 ? (
             <OwnerText className="text-body text-guest-on-surface-variant">
               {availability?.isOpen === false
-                ? 'Sân không mở cửa vào ngày này.'
-                : 'Không có khung giờ phù hợp.'}
+                ? "Sân không mở cửa vào ngày này."
+                : "Không có khung giờ phù hợp."}
             </OwnerText>
           ) : (
             <View className="flex-row flex-wrap gap-2">
@@ -592,30 +654,35 @@ export default function BookingDetailsPage() {
                 const occupied = isSlotOccupied(slot, occupiedRanges);
                 const held = isSlotOccupied(slot, heldRanges);
                 const checkout = isSlotOccupied(slot, checkoutRanges);
-                const heldByMe = ownHoldMatches && isSlotOccupied(slot, [activeHold!]);
-                const selectable = price !== null && !occupied && !checkout && (!held || heldByMe);
+                const heldByMe =
+                  ownHoldMatches && isSlotOccupied(slot, [activeHold!]);
+                const selectable =
+                  price !== null &&
+                  !occupied &&
+                  !checkout &&
+                  (!held || heldByMe);
 
                 const bgClass = isSelected
-                  ? 'bg-slot-selected-background'
+                  ? "bg-slot-selected-background"
                   : occupied || price === null
-                    ? 'bg-slot-booked-background'
+                    ? "bg-slot-booked-background"
                     : (held && !heldByMe) || checkout
-                      ? 'bg-slot-pending-background'
-                      : 'bg-slot-available-background';
+                      ? "bg-slot-pending-background"
+                      : "bg-slot-available-background";
                 const borderClass = isSelected
-                  ? 'border-shuttle'
+                  ? "border-shuttle"
                   : (held && !heldByMe) || checkout
-                    ? 'border-slot-pending-background'
+                    ? "border-slot-pending-background"
                     : selectable
-                      ? 'border-slot-available-outline'
-                      : 'border-guest-outline';
+                      ? "border-slot-available-outline"
+                      : "border-guest-outline";
                 const textClass = isSelected
-                  ? 'text-on-primary'
+                  ? "text-on-primary"
                   : (held && !heldByMe) || checkout
-                    ? 'text-slot-pending-foreground'
+                    ? "text-slot-pending-foreground"
                     : selectable
-                      ? 'text-slot-available-foreground'
-                      : 'text-guest-on-surface-variant';
+                      ? "text-slot-available-foreground"
+                      : "text-guest-on-surface-variant";
 
                 return (
                   <Pressable
@@ -624,20 +691,26 @@ export default function BookingDetailsPage() {
                     disabled={!selectable || holdUpdating}
                     className={`h-[76px] w-[23%] items-center justify-center gap-1 rounded-xl border px-1 py-2 ${bgClass} ${borderClass}`}
                   >
-                    <OwnerText numberOfLines={1} className={`font-familjen-semibold text-label ${textClass}`}>
+                    <OwnerText
+                      numberOfLines={1}
+                      className={`font-familjen-semibold text-label ${textClass}`}
+                    >
                       {slot.startTime.slice(0, 5)}
                     </OwnerText>
-                    <OwnerText numberOfLines={2} className={`h-8 text-center text-caption leading-4 ${textClass}`}>
+                    <OwnerText
+                      numberOfLines={2}
+                      className={`h-8 text-center text-caption leading-4 ${textClass}`}
+                    >
                       {isSelected
-                        ? 'Đang chọn'
+                        ? "Đang chọn"
                         : occupied
-                          ? 'Đã đặt'
+                          ? "Đã đặt"
                           : checkout
-                            ? 'Đang chọn'
+                            ? "Đang chọn"
                             : held
-                              ? 'Đã được chọn'
+                              ? "Đã được chọn"
                               : price === null
-                                ? 'Không có giá'
+                                ? "Không có giá"
                                 : `${Math.round(price / 1000)}k`}
                     </OwnerText>
                   </Pressable>
@@ -647,18 +720,25 @@ export default function BookingDetailsPage() {
           )}
         </View>
 
-        {submitError ? <OwnerText className="text-body text-error">{submitError}</OwnerText> : null}
+        {submitError ? (
+          <OwnerText className="text-body text-error">{submitError}</OwnerText>
+        ) : null}
+          <ScheduleLegend />
       </ScrollView>
 
       {/* Bottom bar */}
       <View className="border-t border-guest-outline bg-guest-surface px-5 pb-5 pt-3">
         <View className="mb-3 flex-row items-center justify-between">
           <View>
-            <OwnerText className="text-body text-guest-on-surface-variant">{summary}</OwnerText>
-            <OwnerText className="text-body text-guest-on-surface-variant">{timeRange}</OwnerText>
+            <OwnerText className="text-body text-guest-on-surface-variant">
+              {summary}
+            </OwnerText>
+            <OwnerText className="text-body text-guest-on-surface-variant">
+              {timeRange}
+            </OwnerText>
           </View>
           <OwnerText className="font-familjen-bold text-title text-guest-on-surface">
-            {total !== null ? formatMoney(total) : '0đ'}
+            {total !== null ? formatMoney(total) : "0đ"}
           </OwnerText>
         </View>
         {activeHold && holdRemainingMs > 0 && ownHoldMatches ? (
@@ -668,13 +748,13 @@ export default function BookingDetailsPage() {
         ) : null}
         <OwnerButton
           title={
-            status === 'signedOut'
-              ? 'Đăng nhập để đặt'
+            status === "signedOut"
+              ? "Đăng nhập để đặt"
               : holdUpdating
-                ? 'Đang giữ giờ...'
+                ? "Đang giữ giờ..."
                 : submitting
-                ? 'Đang đặt sân...'
-                : 'Đặt ngay'
+                  ? "Đang đặt sân..."
+                  : "Đặt ngay"
           }
           disabled={
             submitting ||

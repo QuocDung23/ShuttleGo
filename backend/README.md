@@ -25,12 +25,22 @@ thêm tiền tố `Bearer` vào header cho các endpoint được bảo vệ.
 | --- | --- |
 | `npm run dev` | Chạy dev, tự reload (tsx watch) |
 | `npm run build` / `npm start` | Build ra `dist/` và chạy bản build |
+| `npm test` | Chạy test contract realtime |
 | `npm run typecheck` | Kiểm tra type |
 | `npm run migration:generate -- src/database/migrations/<Ten>` | Sinh migration từ thay đổi entity |
 | `npm run migration:run` / `migration:revert` | Chạy / rollback migration |
 
 > `synchronize` đang **tắt**. Sửa entity xong thì generate migration, đừng sửa DB bằng tay.
 > Đặt `DB_MIGRATIONS_RUN=false` trong `.env` nếu không muốn app tự chạy migration lúc khởi động.
+
+## Realtime
+
+Socket.IO dùng chung port HTTP với API, namespace `/realtime`. Client gửi JWT trong
+`auth.token`; mutation vẫn đi qua REST và event chỉ yêu cầu client refetch snapshot.
+Local không cần cấu hình thêm. Trên staging/production, proxy phải chuyển tiếp WebSocket
+Upgrade cho `/socket.io/`; khi chạy nhiều backend instance cần sticky session và shared
+adapter trước khi scale. Nếu WebSocket bị chặn, Socket.IO tự fallback transport và REST
+vẫn hoạt động độc lập.
 
 ## Cấu trúc
 

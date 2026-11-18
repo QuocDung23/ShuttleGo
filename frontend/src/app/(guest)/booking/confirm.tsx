@@ -35,7 +35,10 @@ export default function BookingConfirmPage() {
   const [now, setNow] = useState(() => Date.now());
   const skipAutoCancelRef = useRef(false);
   const bookingRef = useRef<ApiBooking | null>(null);
-  bookingRef.current = booking;
+
+  useEffect(() => {
+    bookingRef.current = booking;
+  }, [booking]);
 
   useEffect(() => {
     if (!validBookingId) return;

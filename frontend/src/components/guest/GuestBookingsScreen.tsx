@@ -9,6 +9,7 @@ import { OwnerButton, OwnerText } from '@/components/ui/owner-ui';
 import { ApiError } from '@/data/api/client';
 import { bookingRepository } from '@/data/repositories/bookingRepository';
 import { useAuth } from '@/features/auth/AuthContext';
+import { useRealtimeRefresh } from '@/features/realtime/RealtimeProvider';
 import {
   bookingStatusLabel,
   bookingTimeLabel,
@@ -55,6 +56,12 @@ export function GuestBookingsScreen() {
       setLoading(false);
     }
   }, [status]);
+
+  useRealtimeRefresh(
+    ['booking.checkout_created', 'booking.payment_reported', 'booking.status_changed'],
+    () => void load(),
+    status === 'signedIn',
+  );
 
   useFocusEffect(
     useCallback(() => {

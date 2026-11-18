@@ -33,6 +33,7 @@ import {
 } from '@/modules/bookings/booking-rules.js';
 import { Court } from '@/modules/courts/court.entity.js';
 import { Venue } from '@/modules/venues/venue.entity.js';
+import { realtime, scheduleRoom, userRoom } from '@/realtime/realtime.js';
 import type {
   CreateBookingInput,
   QueryBookingsInput,
@@ -136,7 +137,32 @@ export async function create(input: CreateBookingInput, user: AuthUser) {
     if (isPlayerBooking) await manager.delete(BookingHold, { playerId: user.id });
     return saved.id;
   });
-  return findOne(id, user);
+  const created = await findOne(id, user);
+  const venueId = created.court?.venueId;
+  if (isPlayerBooking && venueId) {
+    const data = {
+      bookingId: created.id,
+      venueId,
+      courtId: created.courtId,
+      bookingDate: created.bookingDate,
+      startTime: created.startTime,
+      endTime: created.endTime,
+    };
+    realtime.targets(
+      [userRoom(user.id), scheduleRoom(venueId, created.bookingDate)],
+      'booking.checkout_created',
+      data,
+    );
+    realtime.schedule(venueId, created.bookingDate, 'schedule.changed', {
+      venueId,
+      courtId: created.courtId,
+      bookingDate: created.bookingDate,
+      startTime: created.startTime,
+      endTime: created.endTime,
+      reason: 'checkout_created',
+    });
+  }
+  return created;
 }
 
 /** Player-created bookings must use the venue's real hours, price and bank info. */
@@ -169,6 +195,7 @@ function assertPlayerCanBook(venue: Venue, input: CreateBookingInput) {
 }
 
 export async function update(id: number, input: UpdateBookingInput, user: AuthUser) {
+  let statusChanged = false;
   await AppDataSource.transaction(async (manager) => {
     const booking = await manager.findOne(Booking, { where: { id }, relations: DETAIL_RELATIONS });
     if (!booking) throw notFound(`Booking #${id} not found`);
@@ -194,8 +221,34 @@ export async function update(id: number, input: UpdateBookingInput, user: AuthUs
 
     applyStatusTimestamps(booking, before);
     await manager.save(booking);
+    statusChanged = booking.status !== before.status;
   });
-  return findOne(id, user);
+  const updated = await findOne(id, user);
+  const venueId = updated.court?.venue?.id ?? updated.court?.venueId;
+  if (
+    statusChanged &&
+    venueId &&
+    (updated.status === BookingStatus.CONFIRMED || updated.status === BookingStatus.CANCELLED)
+  ) {
+    const data = {
+      bookingId: updated.id,
+      venueId,
+      courtId: updated.courtId,
+      bookingDate: updated.bookingDate,
+      startTime: updated.startTime,
+      endTime: updated.endTime,
+      status: updated.status,
+    };
+    const userRooms = [updated.court?.venue?.ownerId, updated.playerId]
+      .filter((userId): userId is number => typeof userId === 'number')
+      .map(userRoom);
+    realtime.targets(
+      [...userRooms, scheduleRoom(venueId, updated.bookingDate)],
+      'booking.status_changed',
+      data,
+    );
+  }
+  return updated;
 }
 
 /**
@@ -241,7 +294,18 @@ export async function claimPayment(id: number, user: AuthUser) {
     applyStatusTimestamps(booking, before);
     await manager.save(booking);
   });
-  return findOne(id, user);
+  const updated = await findOne(id, user);
+  const venue = updated.court?.venue;
+  if (venue) {
+    realtime.users([venue.ownerId, user.id], 'booking.payment_reported', {
+      bookingId: updated.id,
+      venueId: venue.id,
+      bookingDate: updated.bookingDate,
+      status: 'pending',
+      paymentStatus: 'pending_verification',
+    });
+  }
+  return updated;
 }
 
 /** Player cancels an unpaid checkout hold before reporting the transfer. */
@@ -275,7 +339,19 @@ export async function cancelPendingCheckout(id: number, user: AuthUser) {
     await manager.save(booking);
   });
 
-  return findOne(id, user);
+  const cancelled = await findOne(id, user);
+  const venueId = cancelled.court?.venueId;
+  if (venueId) {
+    realtime.schedule(venueId, cancelled.bookingDate, 'schedule.changed', {
+      venueId,
+      courtId: cancelled.courtId,
+      bookingDate: cancelled.bookingDate,
+      startTime: cancelled.startTime,
+      endTime: cancelled.endTime,
+      reason: 'booking_cancelled',
+    });
+  }
+  return cancelled;
 }
 
 export async function remove(id: number, user: AuthUser) {

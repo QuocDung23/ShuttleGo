@@ -88,7 +88,12 @@ export default function VenueInfoPage() {
         amenityIds: venue.amenityIds,
       });
       setVenue(toVenueInfo(updated));
-      Alert.alert('Đã lưu', 'Thông tin sân đã được cập nhật.');
+      if (primaryVenue?.status === 'rejected') {
+        await venueRepository.resubmit(venueId);
+        router.replace('/owner-setup/pending');
+      } else {
+        Alert.alert('Đã lưu', 'Thông tin sân đã được cập nhật.');
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể lưu thông tin sân. Vui lòng thử lại.');
     } finally {
@@ -99,10 +104,19 @@ export default function VenueInfoPage() {
   return (
     <SettingsPage
       title="Thông tin sân"
-      saveTitle={loading ? 'Đang tải...' : saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+      saveTitle={
+        loading
+          ? 'Đang tải...'
+          : saving
+            ? 'Đang lưu...'
+            : primaryVenue?.status === 'rejected'
+              ? 'Lưu & gửi duyệt lại'
+              : 'Lưu thay đổi'
+      }
       disabled={loading || saving || venueId === null}
       onBack={() => {
         if (router.canGoBack()) router.back();
+        else if (primaryVenue?.status === 'rejected') router.replace('/owner-setup/pending');
         else router.replace('/(owner)/dashboard');
       }}
       onSave={() => void save()}

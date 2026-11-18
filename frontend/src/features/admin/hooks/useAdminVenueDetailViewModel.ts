@@ -4,6 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { useAuth } from '@/features/auth/AuthContext';
 import { adminVenueRepository } from '@/features/admin/adminVenueRepository';
 import type { AdminVenue, AdminVenueStatus } from '@/features/admin/adminVenue';
+import { useRealtimeRefresh } from '@/features/realtime/RealtimeProvider';
 
 export function useAdminVenueDetailViewModel(id: number) {
   const { user } = useAuth();
@@ -34,6 +35,8 @@ export function useAdminVenueDetailViewModel(id: number) {
       void refresh();
     }, [refresh]),
   );
+
+  useRealtimeRefresh(['venue.review_changed'], () => void refresh());
 
   const review = useCallback(
     async (status: AdminVenueStatus, reviewNote: string | null) => {

@@ -29,6 +29,7 @@ import type {
   ReviewVenueInput,
   UpdateVenueInput,
 } from '@/modules/venues/venues.schema.js';
+import { realtime } from '@/realtime/realtime.js';
 
 const repo = () => AppDataSource.getRepository(Venue);
 
@@ -217,7 +218,9 @@ export async function create(
     return saved.id;
   });
 
-  return findOne(savedId);
+  const venue = await findOne(savedId);
+  realtime.admins('venue.application_submitted', { venueId: venue.id, status: 'pending' });
+  return venue;
 }
 
 /** Throws 403 unless the actor is an admin or owns the venue. */
@@ -250,7 +253,27 @@ export async function review(id: number, input: ReviewVenueInput) {
     reviewedAt: new Date(),
   });
   await repo().save(venue);
-  return findOne(id);
+  const reviewed = await findOne(id);
+  if (reviewed.status === VenueStatus.APPROVED) {
+    realtime.admins('venue.review_changed', { venueId: reviewed.id, status: 'approved' });
+    realtime.users([reviewed.ownerId], 'owner.venue_approved', {
+      venueId: reviewed.id,
+      status: 'approved',
+    });
+  } else if (
+    reviewed.status === VenueStatus.REJECTED ||
+    reviewed.status === VenueStatus.SUSPENDED
+  ) {
+    realtime.admins('venue.review_changed', {
+      venueId: reviewed.id,
+      status: reviewed.status,
+    });
+    realtime.users([reviewed.ownerId], 'owner.venue_reviewed', {
+      venueId: reviewed.id,
+      status: reviewed.status,
+    });
+  }
+  return reviewed;
 }
 
 export async function remove(id: number, user: AuthUser) {
@@ -281,7 +304,9 @@ export async function resubmit(id: number, user: AuthUser) {
   venue.reviewedAt = null;
   venue.reviewedBy = null;
   await repo().save(venue);
-  return findOne(id);
+  const resubmitted = await findOne(id);
+  realtime.admins('venue.application_submitted', { venueId: resubmitted.id, status: 'pending' });
+  return resubmitted;
 }
 
 export async function getAmenities(id: number) {

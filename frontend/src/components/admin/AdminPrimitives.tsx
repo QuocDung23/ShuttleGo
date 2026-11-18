@@ -15,7 +15,7 @@ const statusStyle: Record<AdminVenueStatus, { label: string; background: string;
 export function AdminStatusBadge({ status }: { status: AdminVenueStatus }) {
   const style = statusStyle[status];
   return (
-    <View className={`rounded-full px-3 py-1 ${style.background}`}>
+    <View className={`self-start rounded-full px-3 py-1 ${style.background}`}>
       <OwnerText className={`font-familjen-semibold text-caption ${style.foreground}`}>
         {style.label}
       </OwnerText>

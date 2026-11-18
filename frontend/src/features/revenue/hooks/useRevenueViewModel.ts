@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { bookingRepository } from "@/data/repositories/bookingRepository";
 import { useOwnerVenueAccess } from "@/features/venue/useOwnerVenueAccess";
+import { useRealtimeRefresh } from "@/features/realtime/RealtimeProvider";
 import { toBookingHistoryItem } from "@/features/booking/bookingView";
 import type { BookingHistoryItem } from "@/models/booking";
 import type { RevenueBar, RevenueFilter } from "@/models/revenue";
@@ -59,6 +60,12 @@ export function useRevenueViewModel() {
   const [stats, setStats] = useState(() => buildBars([]));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useRealtimeRefresh(
+    ["booking.payment_reported", "booking.status_changed"],
+    () => setReloadKey((value) => value + 1),
+  );
 
   useEffect(() => {
     let active = true;
@@ -95,7 +102,7 @@ export function useRevenueViewModel() {
     return () => {
       active = false;
     };
-  }, [accessError, accessLoading, primaryVenue]);
+  }, [accessError, accessLoading, primaryVenue, reloadKey]);
 
   const visibleBookings = useMemo(
     () =>

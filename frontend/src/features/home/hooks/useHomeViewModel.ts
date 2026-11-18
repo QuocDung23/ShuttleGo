@@ -4,6 +4,7 @@ import { bookingRepository } from "@/data/repositories/bookingRepository";
 import { venueRepository } from "@/data/repositories/venueRepository";
 import { toPendingBooking } from "@/features/booking/bookingView";
 import { usePendingBookingCount } from "@/features/home/PendingBookingCountContext";
+import { useRealtimeRefresh } from "@/features/realtime/RealtimeProvider";
 import { useOwnerVenueAccess } from "@/features/venue/useOwnerVenueAccess";
 import type { PendingBooking } from "@/models/booking";
 import { closeMinutes, openMinutes } from "@/features/venue/ownerSetupContext";
@@ -17,6 +18,12 @@ export function useHomeViewModel() {
   const [pendingBookings, setPendingBookings] = useState<PendingBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useRealtimeRefresh(
+    ["booking.payment_reported", "booking.status_changed"],
+    () => setReloadKey((value) => value + 1),
+  );
 
   useEffect(() => {
     let active = true;
@@ -71,7 +78,7 @@ export function useHomeViewModel() {
     return () => {
       active = false;
     };
-  }, [accessError, accessLoading, primaryVenue]);
+  }, [accessError, accessLoading, primaryVenue, reloadKey, setPendingCount]);
 
   const resolveBooking = useCallback(async (id: string, status: "confirmed" | "cancelled") => {
     try {

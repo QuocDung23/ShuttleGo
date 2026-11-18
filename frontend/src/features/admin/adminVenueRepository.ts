@@ -3,7 +3,7 @@ import type { AdminVenue, AdminVenueStatus } from '@/features/admin/adminVenue';
 
 type PaginatedVenues = {
   data: AdminVenue[];
-  meta: { totalPages: number };
+  meta: { total: number; totalPages: number };
 };
 
 type ReviewVenueInput = {
@@ -24,6 +24,11 @@ export const adminVenueRepository = {
       Array.from({ length: first.meta.totalPages - 1 }, (_, index) => listPage(index + 2)),
     );
     return first.data.concat(...remaining.map((page) => page.data));
+  },
+
+  async countPending() {
+    const result = await apiRequest<PaginatedVenues>('/venues?status=pending&page=1&limit=1');
+    return result.meta.total;
   },
 
   get(id: number) {

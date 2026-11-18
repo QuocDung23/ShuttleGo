@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router';
 
 import type { AdminVenue } from '@/features/admin/adminVenue';
 import { adminVenueRepository } from '@/features/admin/adminVenueRepository';
+import { useRealtimeRefresh } from '@/features/realtime/RealtimeProvider';
 
 export function useAdminVenuesViewModel() {
   const [venues, setVenues] = useState<AdminVenue[]>([]);
@@ -25,6 +26,11 @@ export function useAdminVenuesViewModel() {
     useCallback(() => {
       void refresh();
     }, [refresh]),
+  );
+
+  useRealtimeRefresh(
+    ['venue.application_submitted', 'venue.review_changed'],
+    () => void refresh(),
   );
 
   return { venues, isLoading, error, refresh };

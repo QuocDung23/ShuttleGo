@@ -17,6 +17,7 @@ import { Court } from '@/modules/courts/court.entity.js';
 import { User } from '@/modules/users/user.entity.js';
 import { Venue } from '@/modules/venues/venue.entity.js';
 import type { SelectBookingHoldInput } from '@/modules/bookings/booking-holds.schema.js';
+import { realtime } from '@/realtime/realtime.js';
 
 function assertPlayer(user: AuthUser) {
   if (user.role !== UserRole.PLAYER) throw forbidden('Chỉ người chơi mới có thể giữ khung giờ.');
@@ -32,13 +33,18 @@ export async function select(input: SelectBookingHoldInput, user: AuthUser) {
   assertPlayer(user);
   assertTimeRange(input.startTime, input.endTime, 'booking time');
 
-  return AppDataSource.transaction(async (manager) => {
+  const result = await AppDataSource.transaction(async (manager) => {
     // Serialize simultaneous first selections by the same player.
     const player = await manager.findOne(User, {
       where: { id: user.id },
       lock: { mode: 'pessimistic_write' },
     });
     if (!player) throw notFound('Không tìm thấy tài khoản người chơi.');
+
+    const existing = await manager.findOne(BookingHold, {
+      where: { playerId: user.id },
+      lock: { mode: 'pessimistic_write' },
+    });
 
     const court = await manager.findOne(Court, {
       where: { id: input.courtId },
@@ -93,10 +99,6 @@ export async function select(input: SelectBookingHoldInput, user: AuthUser) {
       .getOne();
     if (holdClash) throw conflict('Khung giờ này đang được người khác chọn.');
 
-    const existing = await manager.findOne(BookingHold, {
-      where: { playerId: user.id },
-      lock: { mode: 'pessimistic_write' },
-    });
     const next = manager.create(BookingHold, {
       ...(existing ? { id: existing.id } : {}),
       playerId: user.id,
@@ -106,11 +108,65 @@ export async function select(input: SelectBookingHoldInput, user: AuthUser) {
       endTime: input.endTime,
       expiresAt: new Date(Date.now() + BOOKING_SELECTION_HOLD_MS),
     });
-    return manager.save(BookingHold, next);
+    const hold = await manager.save(BookingHold, next);
+    const previousCourt = existing
+      ? await manager.findOneBy(Court, { id: existing.courtId })
+      : null;
+    return { hold, venueId: venue.id, existing, previousVenueId: previousCourt?.venueId };
   });
+
+  const previousChanged = result.existing && (
+    result.existing.courtId !== result.hold.courtId ||
+    result.existing.bookingDate !== result.hold.bookingDate ||
+    result.existing.startTime !== result.hold.startTime ||
+    result.existing.endTime !== result.hold.endTime
+  );
+  if (previousChanged && result.previousVenueId) {
+    realtime.schedule(result.previousVenueId, result.existing!.bookingDate, 'slot.hold_changed', {
+      venueId: result.previousVenueId,
+      courtId: result.existing!.courtId,
+      bookingDate: result.existing!.bookingDate,
+      startTime: result.existing!.startTime,
+      endTime: result.existing!.endTime,
+      action: 'released',
+    });
+  }
+  realtime.schedule(result.venueId, result.hold.bookingDate, 'slot.hold_changed', {
+    venueId: result.venueId,
+    courtId: result.hold.courtId,
+    bookingDate: result.hold.bookingDate,
+    startTime: result.hold.startTime,
+    endTime: result.hold.endTime,
+    action: 'held',
+    expiresAt: result.hold.expiresAt.toISOString(),
+  });
+  return result.hold;
 }
 
 export async function releaseMine(user: AuthUser) {
   assertPlayer(user);
-  await AppDataSource.getRepository(BookingHold).delete({ playerId: user.id });
+  const released = await AppDataSource.transaction(async (manager) => {
+    await manager.findOne(User, {
+      where: { id: user.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const hold = await manager.findOne(BookingHold, {
+      where: { playerId: user.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!hold) return null;
+    const court = await manager.findOneBy(Court, { id: hold.courtId });
+    await manager.delete(BookingHold, { id: hold.id });
+    return { hold, venueId: court?.venueId };
+  });
+  if (released?.venueId) {
+    realtime.schedule(released.venueId, released.hold.bookingDate, 'slot.hold_changed', {
+      venueId: released.venueId,
+      courtId: released.hold.courtId,
+      bookingDate: released.hold.bookingDate,
+      startTime: released.hold.startTime,
+      endTime: released.hold.endTime,
+      action: 'released',
+    });
+  }
 }

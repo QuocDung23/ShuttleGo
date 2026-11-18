@@ -29,6 +29,8 @@
    - Khi chạy Expo web, thêm origin web vào `CORS_ORIGIN` của backend (ví dụ `http://localhost:8081`).
    - Không đặt secret vào biến `EXPO_PUBLIC_*` (biến này được nhúng vào bundle).
    - Sau khi đổi `.env`, khởi động lại Expo.
+   - Realtime dùng cùng origin với `EXPO_PUBLIC_API_URL`; không cần thêm URL hay port.
+     App tự reconnect và refetch REST khi kết nối lại/return foreground.
 
 3. Start the app
 

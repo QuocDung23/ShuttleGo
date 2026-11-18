@@ -1,11 +1,10 @@
 import { useRouter } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { ActivityIndicator, Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { OwnerButton, OwnerHeader, OwnerText, ownerColors } from "@/components/ui/owner-ui";
-import { venueRepository } from "@/data/repositories/venueRepository";
 import { useAuth } from "@/features/auth/AuthContext";
 import { useOwnerSetup } from "@/features/venue/ownerSetupContext";
 import { useOwnerVenueAccess } from "@/features/venue/useOwnerVenueAccess";
@@ -80,9 +79,6 @@ export default function OwnerSetupPendingPage() {
     enabled: user?.role === "owner",
     refreshOnForeground: true,
   });
-  const [submitting, setSubmitting] = useState(false);
-  const [actionError, setActionError] = useState("");
-
   const backToLogin = () => {
     void logout().then(
       () => router.replace("/login"),
@@ -117,20 +113,6 @@ export default function OwnerSetupPendingPage() {
       router.replace("/(owner)/dashboard");
     }
   }, [displayVenue?.status, error, loading, router, state, user, venues.length]);
-
-  const onResubmit = async () => {
-    if (!displayVenue) return;
-    setSubmitting(true);
-    setActionError("");
-    try {
-      await venueRepository.resubmit(displayVenue.id);
-      await refresh();
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Không thể gửi lại hồ sơ. Vui lòng thử lại.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -204,20 +186,13 @@ export default function OwnerSetupPendingPage() {
               </View>
             ) : null}
           </View>
-
-          {actionError ? (
-            <View className="w-full rounded-xl border border-error/30 bg-error/10 px-3 py-2">
-              <OwnerText className="text-error text-body">{actionError}</OwnerText>
-            </View>
-          ) : null}
         </View>
 
         <View className="mt-8 gap-3">
           {displayVenue?.status === "rejected" ? (
             <OwnerButton
-              title={submitting ? "Đang gửi lại..." : "Gửi lại hồ sơ"}
-              onPress={() => void onResubmit()}
-              disabled={submitting}
+              title="Chỉnh sửa hồ sơ"
+              onPress={() => router.push("/(owner)/venue-info")}
             />
           ) : null}
 
@@ -225,7 +200,7 @@ export default function OwnerSetupPendingPage() {
             title={loading ? "Đang kiểm tra..." : "Kiểm tra trạng thái"}
             outline
             onPress={() => void refresh()}
-            disabled={loading || submitting}
+            disabled={loading}
           />
 
           <Pressable

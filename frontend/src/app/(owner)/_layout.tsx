@@ -1,4 +1,4 @@
-import { Redirect, Stack } from 'expo-router';
+import { Redirect, Stack, usePathname } from 'expo-router';
 import { ActivityIndicator, Pressable, View } from 'react-native';
 
 import { OwnerText } from '@/components/ui/owner-ui';
@@ -7,6 +7,7 @@ import { useOwnerVenueAccess } from '@/features/venue/useOwnerVenueAccess';
 import { colors } from '@/shared/theme';
 
 export default function OwnerLayout() {
+  const pathname = usePathname();
   const { user, isRestoring } = useAuth();
   const isOwner = user?.role === 'owner';
   const { state, loading, error, refresh } = useOwnerVenueAccess({ enabled: isOwner });
@@ -47,7 +48,7 @@ export default function OwnerLayout() {
     );
   }
 
-  if (state === 'approved') {
+  if (state === 'approved' || (state === 'rejected' && pathname === '/venue-info')) {
     return <Stack screenOptions={{ headerShown: false }} />;
   }
 
