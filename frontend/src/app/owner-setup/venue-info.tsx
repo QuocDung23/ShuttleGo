@@ -1,25 +1,29 @@
 import { useRouter } from "expo-router";
+
 import { SettingsPage } from "@/components/venue/SettingsPage";
 import { VenueInfoForm } from "@/components/venue/VenueInfoForm";
+import { useAuth } from "@/features/auth/AuthContext";
+import { useOwnerSetup } from "@/features/venue/ownerSetupContext";
 
 export default function OwnerSetupVenueInfoPage() {
   const router = useRouter();
+  const { logout } = useAuth();
+  const { venueInfo, setVenueInfo } = useOwnerSetup();
+  const backToLogin = () => {
+    void logout().then(
+      () => router.replace("/login"),
+      () => router.replace("/login"),
+    );
+  };
 
   return (
     <SettingsPage
       title="Thông tin sân"
       saveTitle="Tiếp theo →"
-      onBack={() => router.back()}
+      onBack={backToLogin}
       onSave={() => router.push("/owner-setup/pricing")}
     >
-      <VenueInfoForm
-        venue={{
-          name: "Sân cầu lông Kỳ Hòa",
-          address: "238 Bis Ba Tháng Hai, Phường 12, Quận 10",
-          phone: "0912 345 678",
-          description: "Sân thảm PVC, đèn LED chống chói, trần cao",
-        }}
-      />
+      <VenueInfoForm value={venueInfo} onChange={setVenueInfo} />
     </SettingsPage>
   );
 }

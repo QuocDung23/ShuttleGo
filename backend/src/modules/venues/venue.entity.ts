@@ -92,6 +92,9 @@ export class Venue {
   @Column({ type: 'varchar', length: 100, nullable: true })
   bankAccountHolder: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  bankQrImageUrl: string | null;
+
   @Index()
   @Column({
     type: 'enum',

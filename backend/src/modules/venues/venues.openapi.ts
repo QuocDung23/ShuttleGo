@@ -44,6 +44,33 @@ export const venuePaths: OpenApiPaths = {
       },
     },
   },
+  '/venues/mine': {
+    get: {
+      tags: ['Venues'],
+      summary: "List the authenticated owner's venues for onboarding/approval status",
+      security: bearerSecurity,
+      responses: {
+        200: jsonResponse('Owner venues status', schemaRef('OwnerVenuesResponse')),
+        401: commonErrors[401],
+        403: commonErrors[403],
+      },
+    },
+  },
+  '/venues/{id}/resubmit': {
+    post: {
+      tags: ['Venues'],
+      summary: 'Resubmit a rejected venue for review (owner)',
+      security: bearerSecurity,
+      parameters: [idParameter()],
+      responses: {
+        200: jsonResponse('Venue resubmitted', schemaRef('Venue')),
+        401: commonErrors[401],
+        403: commonErrors[403],
+        404: commonErrors[404],
+        409: commonErrors[409],
+      },
+    },
+  },
   '/venues/{id}': {
     get: {
       tags: ['Venues'],

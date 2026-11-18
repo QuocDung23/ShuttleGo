@@ -28,16 +28,17 @@ export default function LoginPage() {
     setError('');
     try {
       const user = await login({ phone: normalizedPhone, password });
-      if (user.role === 'owner') {
-        router.replace('/(owner)/dashboard');
-      } else if (user.role === 'admin') {
+      if (user.role === 'admin') {
         router.replace('/admin/courts');
-      } else {
+      } else if (user.role === 'player') {
         router.replace('/(guest)/explore');
+      } else {
+        // Owner: let root/index resolve venue approval gate.
+        router.replace('/');
       }
     } catch (e) {
       if (e instanceof ApiError) {
-        if (e.status === 401) setError('Số điện thoại hoặc mật khẩu không đúng.');
+        if (e.status === 401) setError('Số điện thoại/tài khoản hoặc mật khẩu không đúng.');
         else if (e.status === 403) setError(e.message || 'Tài khoản không hoạt động.');
         else if (e.status === 400) setError(e.message || 'Thông tin đăng nhập không hợp lệ.');
         else setError(e.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
@@ -87,8 +88,7 @@ export default function LoginPage() {
             setPhone(value);
             setError('');
           }}
-          keyboardType="phone-pad"
-          autoComplete="tel"
+          keyboardType="default"
           editable={!submitting}
         />
         <AuthField

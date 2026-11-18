@@ -8,5 +8,8 @@ export default function HoursPage() {
   const router = useRouter();
   const { days, save } = useHoursViewModel();
 
-  return <SettingsPage title="Giờ mở cửa" saveTitle="Lưu giờ mở cửa" onBack={() => router.back()} onSave={save}><OpeningHoursForm days={days} /></SettingsPage>;
+  return <SettingsPage title="Giờ mở cửa" saveTitle="Lưu giờ mở cửa" onBack={() => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/(owner)/dashboard');
+  }} onSave={save}><OpeningHoursForm days={days} /></SettingsPage>;
 }

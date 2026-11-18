@@ -13,7 +13,7 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  phone: phoneString,
+  phone: phoneString.or(z.literal('admin')),
   password: z.string().min(1).max(72),
 });
 

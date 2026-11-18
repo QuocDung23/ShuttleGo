@@ -34,6 +34,13 @@
           "imageWidth": 76
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cho phép ShuttleGo truy cập ảnh để bạn chọn ảnh bìa sân và mã QR ngân hàng.",
+          "microphonePermission": false
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {

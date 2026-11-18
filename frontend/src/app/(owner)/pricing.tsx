@@ -6,7 +6,19 @@ import { usePricingViewModel } from '@/features/venue/hooks/usePricingViewModel'
 
 export default function PricingPage() {
   const router = useRouter();
-  const { rows, prices, changePrice, save } = usePricingViewModel();
+  const { pricing, setPricing, save } = usePricingViewModel();
 
-  return <SettingsPage title="Giá theo khung giờ" saveTitle="Lưu giá" onBack={() => router.back()} onSave={save}><PricingForm rows={rows} prices={prices} onChangePrice={changePrice} /></SettingsPage>;
+  return (
+    <SettingsPage
+      title="Giá theo khung giờ"
+      saveTitle="Lưu giá"
+      onBack={() => {
+        if (router.canGoBack()) router.back();
+        else router.replace('/(owner)/dashboard');
+      }}
+      onSave={save}
+    >
+      <PricingForm value={pricing} onChange={setPricing} />
+    </SettingsPage>
+  );
 }

@@ -46,3 +46,11 @@ export async function setAmenities(req: Request, res: Response) {
   const { amenityIds } = setAmenitiesSchema.parse(req.body);
   renderOk(res, await service.setAmenities(parseId(req.params.id), amenityIds, req.user!));
 }
+
+export async function mine(req: Request, res: Response) {
+  renderOk(res, await service.findMine(req.user!.id));
+}
+
+export async function resubmit(req: Request, res: Response) {
+  renderOk(res, await service.resubmit(parseId(req.params.id), req.user!));
+}
