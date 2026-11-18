@@ -53,12 +53,21 @@ function buildBars(bookings: Awaited<ReturnType<typeof bookingRepository.listAll
   return { bars, totalRevenue, bookingCount, hoursSold: Math.round(hoursSold) };
 }
 
+type RevenueSnapshot = {
+  allBookings: BookingHistoryItem[];
+  stats: ReturnType<typeof buildBars>;
+};
+
+const revenueCache = new Map<number, RevenueSnapshot>();
+
 export function useRevenueViewModel() {
   const { primaryVenue, loading: accessLoading, error: accessError } = useOwnerVenueAccess();
+  const venueId = primaryVenue?.id ?? null;
+  const cached = venueId === null ? undefined : revenueCache.get(venueId);
   const [filter, setFilter] = useState<RevenueFilter>("Tất cả");
-  const [allBookings, setAllBookings] = useState<BookingHistoryItem[]>([]);
-  const [stats, setStats] = useState(() => buildBars([]));
-  const [loading, setLoading] = useState(true);
+  const [allBookings, setAllBookings] = useState<BookingHistoryItem[]>(cached?.allBookings ?? []);
+  const [stats, setStats] = useState(() => cached?.stats ?? buildBars([]));
+  const [loading, setLoading] = useState(cached === undefined);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -76,23 +85,35 @@ export function useRevenueViewModel() {
         setLoading(false);
         return;
       }
-      if (!primaryVenue) {
+      if (venueId === null) {
         setError("Không tìm thấy thông tin sân của tài khoản này.");
         setLoading(false);
         return;
       }
 
-      setLoading(true);
+      const previous = revenueCache.get(venueId);
+      if (previous) {
+        setAllBookings(previous.allBookings);
+        setStats(previous.stats);
+      }
+      setLoading(previous === undefined);
       setError("");
       void bookingRepository
-        .listAll({ venueId: primaryVenue.id })
+        .listAll({ venueId })
         .then((bookings) => {
           if (!active) return;
-          setAllBookings(bookings.map(toBookingHistoryItem));
-          setStats(buildBars(bookings));
+          const next = {
+            allBookings: bookings.map(toBookingHistoryItem),
+            stats: buildBars(bookings),
+          };
+          revenueCache.set(venueId, next);
+          setAllBookings(next.allBookings);
+          setStats(next.stats);
         })
         .catch((e) => {
-          if (active) setError(e instanceof Error ? e.message : "Không tải được dữ liệu doanh thu.");
+          if (active && previous === undefined) {
+            setError(e instanceof Error ? e.message : "Không tải được dữ liệu doanh thu.");
+          }
         })
         .finally(() => {
           if (active) setLoading(false);
@@ -102,7 +123,7 @@ export function useRevenueViewModel() {
     return () => {
       active = false;
     };
-  }, [accessError, accessLoading, primaryVenue, reloadKey]);
+  }, [accessError, accessLoading, reloadKey, venueId]);
 
   const visibleBookings = useMemo(
     () =>

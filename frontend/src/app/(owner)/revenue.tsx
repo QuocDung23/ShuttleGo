@@ -38,7 +38,7 @@ export default function RevenuePage() {
           <OwnerText className="mt-3 font-familjen-semibold text-title">Lịch sử đơn</OwnerText>
           <RevenueFilters filters={filters} value={filter} onChange={setFilter} />
           {visibleBookings.length === 0 ? (
-            <OwnerText tone="muted" className="text-caption">Không có đơn nào.</OwnerText>
+            <OwnerText tone="muted" className="text-caption text-center">Không có đơn nào.</OwnerText>
           ) : null}
           {visibleBookings.map((booking) => <BookingHistoryCard key={booking.id} booking={booking} />)}
         </>

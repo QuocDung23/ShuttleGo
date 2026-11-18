@@ -14,23 +14,35 @@ type ListVenuesParams = {
   search?: string;
 };
 
+const venueCache = new Map<number, Venue>();
+
 export const venueRepository = {
-  get(id: number) {
-    return apiRequest<Venue>(`/venues/${id}`);
+  getCached(id: number) {
+    return venueCache.get(id) ?? null;
   },
 
-  create(input: CreateVenueInput) {
-    return apiRequest<Venue>('/venues', {
+  async get(id: number) {
+    const venue = await apiRequest<Venue>(`/venues/${id}`);
+    venueCache.set(venue.id, venue);
+    return venue;
+  },
+
+  async create(input: CreateVenueInput) {
+    const venue = await apiRequest<Venue>('/venues', {
       method: 'POST',
       body: input,
     });
+    venueCache.set(venue.id, venue);
+    return venue;
   },
 
-  update(id: number, input: UpdateVenueInput) {
-    return apiRequest<Venue>(`/venues/${id}`, {
+  async update(id: number, input: UpdateVenueInput) {
+    const venue = await apiRequest<Venue>(`/venues/${id}`, {
       method: 'PATCH',
       body: input,
     });
+    venueCache.set(venue.id, venue);
+    return venue;
   },
 
   list(params: ListVenuesParams = {}) {
@@ -47,9 +59,11 @@ export const venueRepository = {
     return apiRequest<OwnerVenuesResponse>('/venues/mine');
   },
 
-  resubmit(id: number) {
-    return apiRequest<Venue>(`/venues/${id}/resubmit`, {
+  async resubmit(id: number) {
+    const venue = await apiRequest<Venue>(`/venues/${id}/resubmit`, {
       method: 'POST',
     });
+    venueCache.set(venue.id, venue);
+    return venue;
   },
 };

@@ -19,6 +19,8 @@ import type { ApiBooking } from '@/models/booking';
 import { formatMoney } from '@/shared/format';
 import { colors } from '@/shared/theme';
 
+const guestBookingsCache = new Map<string, ApiBooking[]>();
+
 function paymentText(booking: ApiBooking) {
   if (isHoldExpired(booking)) return 'Hết hạn giữ chỗ';
   switch (booking.paymentStatus) {
@@ -35,27 +37,34 @@ function paymentText(booking: ApiBooking) {
 
 export function GuestBookingsScreen() {
   const router = useRouter();
-  const { status } = useAuth();
-  const [bookings, setBookings] = useState<ApiBooking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { status, user } = useAuth();
+  const cacheKey = status === 'signedIn' && user ? `user:${user.id}` : 'signed-out';
+  const cached = guestBookingsCache.get(cacheKey);
+  const [bookings, setBookings] = useState<ApiBooking[]>(cached ?? []);
+  const [loading, setLoading] = useState(cached === undefined);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
-    setLoading(true);
+    const previous = guestBookingsCache.get(cacheKey);
+    if (previous) setBookings(previous);
+    setLoading(previous === undefined);
     setError('');
     try {
       const data = status === 'signedIn' ? await bookingRepository.listAll() : [];
+      guestBookingsCache.set(cacheKey, data);
       setBookings(data);
     } catch (loadError) {
-      setError(
-        loadError instanceof ApiError
-          ? loadError.message || 'Không thể tải lịch đặt.'
-          : 'Không thể tải lịch đặt. Vui lòng thử lại.',
-      );
+      if (previous === undefined) {
+        setError(
+          loadError instanceof ApiError
+            ? loadError.message || 'Không thể tải lịch đặt.'
+            : 'Không thể tải lịch đặt. Vui lòng thử lại.',
+        );
+      }
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [cacheKey, status]);
 
   useRealtimeRefresh(
     ['booking.checkout_created', 'booking.payment_reported', 'booking.status_changed'],
@@ -65,35 +74,14 @@ export function GuestBookingsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        setLoading(true);
-        setError('');
-        try {
-          const data = status === 'signedIn' ? await bookingRepository.listAll() : [];
-          if (!cancelled) setBookings(data);
-        } catch (loadError) {
-          if (!cancelled) {
-            setError(
-              loadError instanceof ApiError
-                ? loadError.message || 'Không thể tải lịch đặt.'
-                : 'Không thể tải lịch đặt. Vui lòng thử lại.',
-            );
-          }
-        } finally {
-          if (!cancelled) setLoading(false);
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [status]),
+      void load();
+    }, [load]),
   );
 
   const isSignedOut = status === 'signedOut';
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-guest-background">
+    <SafeAreaView edges={['top']} className="flex-1 bg-guest-background">
       <ScrollView
         contentContainerClassName="w-full max-w-[560px] self-center grow px-4 pb-6 pt-3"
         showsVerticalScrollIndicator={false}

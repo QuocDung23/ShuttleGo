@@ -1,21 +1,62 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { OwnerButton, OwnerText } from '@/components/ui/owner-ui';
+import { OwnerButton, OwnerCard, OwnerText } from '@/components/ui/owner-ui';
 import { ApiError } from '@/data/api/client';
 import { bookingRepository } from '@/data/repositories/bookingRepository';
-import {
-  bookingStatusLabel,
-  bookingTimeLabel,
-} from '@/features/booking/bookingView';
+import { bookingStatusLabel } from '@/features/booking/bookingView';
 import type { ApiBooking } from '@/models/booking';
 import { useRealtimeRefresh } from '@/features/realtime/RealtimeProvider';
-import { formatMoney } from '@/shared/format';
+import { formatBookingDate, formatMoney, formatTimeRange } from '@/shared/format';
+import { colors } from '@/shared/theme';
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View className="flex-row items-center justify-between gap-4">
+      <OwnerText className="text-body-lg text-guest-on-surface-variant">{label}</OwnerText>
+      <OwnerText className="flex-1 text-right font-familjen-semibold text-body-lg text-guest-on-surface">
+        {value}
+      </OwnerText>
+    </View>
+  );
+}
+
+function StatusStep({
+  symbol,
+  symbolClass,
+  label,
+  description,
+}: {
+  symbol: string;
+  symbolClass: string;
+  label: string;
+  description: string;
+}) {
+  return (
+    <View className="flex-row items-start gap-3">
+      <View className={`h-8 w-8 items-center justify-center rounded-full ${symbolClass}`}>
+        <OwnerText className="font-familjen-bold text-label text-white">
+          {symbol}
+        </OwnerText>
+      </View>
+      <View className="flex-1">
+        <OwnerText className="font-familjen-semibold text-title-sm text-guest-on-surface">
+          {label}
+        </OwnerText>
+        <OwnerText className="text-body text-guest-on-surface-variant">
+          {description}
+        </OwnerText>
+      </View>
+    </View>
+  );
+}
 
 export default function BookingSuccessPage() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ bookingId?: string }>();
   const bookingId = Number(params.bookingId);
   const [booking, setBooking] = useState<ApiBooking | null>(null);
@@ -54,94 +95,167 @@ export default function BookingSuccessPage() {
 
   const confirmed = booking?.status === 'confirmed';
   const cancelled = booking?.status === 'cancelled';
+  const completed = booking?.status === 'completed';
   const statusLabel = booking
     ? cancelled
       ? 'Đã hủy'
-      : bookingStatusLabel(booking)
+      : completed
+        ? 'Hoàn thành'
+        : bookingStatusLabel(booking)
     : '';
   const statusContainerClass = confirmed
-    ? 'bg-slot-available-background'
+    ? 'border border-slot-available-outline bg-guest-surface'
     : cancelled
       ? 'bg-error-container'
-      : 'bg-primary-container';
+      : completed
+        ? 'bg-slot-booked-background'
+        : 'bg-slot-pending-background';
   const statusTextClass = confirmed
     ? 'text-slot-available-foreground'
     : cancelled
       ? 'text-error'
-      : 'text-primary';
+      : completed
+        ? 'text-guest-on-surface-variant'
+        : 'text-slot-pending-foreground';
+
+  const paymentMethodLabel = booking?.paymentMethod === 'cash'
+    ? 'Trả tại sân'
+    : booking?.paymentMethod === 'bank_transfer'
+      ? 'Chuyển khoản'
+      : 'Chưa xác định';
+  const paymentStatusLabel = booking?.paymentMethod === 'cash' && booking.paymentStatus === 'unpaid'
+    ? 'Trả tại sân'
+    : booking?.paymentStatus === 'paid'
+      ? 'Đã thanh toán'
+      : booking?.paymentStatus === 'pending_verification'
+        ? 'Chờ chủ sân xác nhận'
+        : booking?.paymentStatus === 'refunded'
+          ? 'Đã hoàn tiền'
+          : 'Chưa thanh toán';
+  const venue = booking?.court?.venue;
+  const venueAddress = venue?.address ?? [venue?.district, venue?.city].filter(Boolean).join(', ');
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} className="flex-1 bg-guest-background">
-      <View className="flex-1 justify-center gap-4 px-5">
-        <View
-          className={`h-16 w-16 self-center items-center justify-center rounded-full ${statusContainerClass}`}
+    <SafeAreaView edges={['top']} className="flex-1 bg-guest-background">
+      <View className="h-16 flex-row items-center px-3">
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Quay lại"
+          onPress={() => router.back()}
+          className="h-12 w-12 items-center justify-center rounded-full"
         >
-          <OwnerText className={`font-familjen-bold text-title ${statusTextClass}`}>
-            {cancelled ? '×' : '✓'}
-          </OwnerText>
-        </View>
-        <OwnerText className="text-center font-familjen-bold text-title text-guest-on-surface">
-          {confirmed
-            ? 'Đặt sân đã được xác nhận'
-            : cancelled
-              ? 'Đơn đặt sân đã bị hủy'
-              : 'Đã gửi yêu cầu đặt sân'}
+          <SymbolView
+            name={{ ios: 'arrow.left', android: 'arrow_back', web: 'arrow_back' }}
+            tintColor={colors.guestOnSurfaceVariant}
+            size={26}
+          />
+        </Pressable>
+        <OwnerText className="ml-1 flex-1 font-familjen-bold text-title text-guest-on-surface">
+          Chi tiết đơn
         </OwnerText>
-        <OwnerText className="text-center text-body text-guest-on-surface-variant">
-          {confirmed
-            ? 'Chủ sân đã xác nhận đơn đặt sân của bạn.'
-            : cancelled
-              ? 'Đơn đặt sân này đã được hủy.'
-              : 'Chúng tôi đã nhận thông báo chuyển khoản. Đơn của bạn đang chờ chủ sân xác nhận.'}
-        </OwnerText>
+      </View>
 
-        <View
-          className={`mt-3 gap-3 rounded-2xl border p-4 ${
-            confirmed
-              ? 'border-slot-available-outline bg-slot-available-background'
-              : cancelled
-                ? 'border-error/30 bg-error-container'
-                : 'border-guest-outline bg-guest-surface'
-          }`}
+      {booking ? (
+        <ScrollView
+          className="flex-1"
+          contentContainerClassName="gap-3 px-4 pb-6 pt-2"
+          showsVerticalScrollIndicator={false}
         >
-          {booking ? (
-            <>
-              <View className={`self-start rounded-full px-3 py-1 ${statusContainerClass}`}>
-                <OwnerText className={`font-familjen-bold text-caption ${statusTextClass}`}>
-                  {confirmed ? '✓ ' : cancelled ? '× ' : ''}
-                  {statusLabel}
+          <OwnerCard className="gap-3">
+            <View className="flex-row items-center justify-between gap-2">
+              <OwnerText className="flex-1 font-familjen-semibold text-title text-guest-on-surface">
+                {venue?.name ?? 'Sân'}
+              </OwnerText>
+              <View className={`flex-row items-center gap-1 rounded-full px-3 py-1.5 ${statusContainerClass}`}>
+                <OwnerText className={`font-familjen-bold text-label ${statusTextClass}`}>
+                  {cancelled ? '× ' : confirmed || completed ? '✓ ' : ''}{statusLabel}
                 </OwnerText>
               </View>
-              <OwnerText className="font-familjen-bold text-label text-guest-on-surface">
-                {booking.court?.venue?.name ?? 'Sân'}
+            </View>
+            <View className="flex-row items-center gap-2">
+              <SymbolView
+                name={{ ios: 'mappin', android: 'location_on', web: 'location_on' }}
+                tintColor={colors.guestOnSurfaceVariant}
+                size={20}
+              />
+              <OwnerText className="flex-1 text-body-lg text-guest-on-surface-variant">
+                {venueAddress || 'Chưa cập nhật địa chỉ'}
               </OwnerText>
-              <OwnerText className="text-body-sm text-guest-on-surface-variant">
-                {bookingTimeLabel(booking)}
-              </OwnerText>
-              <OwnerText className="text-body-sm text-guest-on-surface-variant">
-                {booking.court?.name ?? 'Sân'} · {formatMoney(booking.totalAmount)}
-              </OwnerText>
-              <OwnerText className="text-body-sm text-guest-on-surface-variant">
-                Mã đặt sân: {booking.code}
-              </OwnerText>
-              {cancelled && booking.cancelReason ? (
-                <OwnerText className="border-t border-error/30 pt-2 text-body-sm font-familjen-medium text-error">
-                  Lý do hủy: {booking.cancelReason}
-                </OwnerText>
-              ) : null}
-            </>
-          ) : (
-            <OwnerText className="text-body text-guest-on-surface-variant">
-              {!validBookingId ? 'Không tìm thấy đặt sân.' : (error || 'Đang tải thông tin đặt sân...')}
-            </OwnerText>
-          )}
-        </View>
+            </View>
+            <View className="h-px bg-divider" />
+            <DetailRow label="Ngày" value={formatBookingDate(booking.bookingDate)} />
+            <DetailRow label="Giờ" value={formatTimeRange(booking.startTime, booking.endTime)} />
+            <DetailRow label="Sân" value={booking.court?.name ?? 'Sân'} />
+            <DetailRow label="Mã đơn" value={booking.code} />
+          </OwnerCard>
 
-        <View className="mt-3 gap-3">
-          <OwnerButton title="Xem lịch đặt" onPress={() => router.replace('/(guest)/my-bookings')} />
-          <OwnerButton title="Về trang chủ" outline onPress={() => router.replace('/(guest)/explore')} />
+          <OwnerCard className="gap-4">
+            <OwnerText className="font-familjen-semibold text-title text-guest-on-surface">
+              Trạng thái đơn
+            </OwnerText>
+            <StatusStep
+              symbol={cancelled ? '×' : confirmed || completed ? '✓' : '…'}
+              symbolClass={cancelled
+                ? 'bg-error'
+                : confirmed
+                  ? 'bg-slot-available-outline'
+                  : completed
+                    ? 'bg-primary'
+                    : 'bg-outline'}
+              label={statusLabel}
+              description={cancelled
+                ? booking.cancelReason || 'Khung giờ đã được mở lại'
+                : confirmed
+                  ? 'Chủ sân đã duyệt đơn của bạn'
+                  : completed
+                    ? 'Đơn đã hoàn thành'
+                    : 'Đơn đang chờ chủ sân duyệt'}
+            />
+          </OwnerCard>
+
+          <OwnerCard className="gap-4">
+            <OwnerText className="font-familjen-semibold text-title text-guest-on-surface">
+              Thanh toán
+            </OwnerText>
+            <DetailRow label="Phương thức" value={paymentMethodLabel} />
+            <DetailRow label="Trạng thái" value={paymentStatusLabel} />
+            <View className="h-px bg-divider" />
+            <View className="flex-row items-end justify-between gap-4">
+              <OwnerText className="font-familjen-semibold text-title-sm text-guest-on-surface">
+                Tổng cộng
+              </OwnerText>
+              <OwnerText className="font-familjen-bold text-headline text-guest-on-surface">
+                {formatMoney(booking.totalAmount)}
+              </OwnerText>
+            </View>
+          </OwnerCard>
+        </ScrollView>
+      ) : (
+        <View className="flex-1 items-center justify-center px-6">
+          <OwnerText className={`text-center text-body ${error ? 'text-error' : 'text-guest-on-surface-variant'}`}>
+            {!validBookingId ? 'Không tìm thấy đặt sân.' : (error || 'Đang tải thông tin đặt sân...')}
+          </OwnerText>
         </View>
-      </View>
+      )}
+
+      {booking ? (
+        <View
+          className="flex-row items-center gap-3 border-t border-divider bg-guest-surface px-4 pt-3"
+          style={{ paddingBottom: Math.max(16, insets.bottom) }}
+        >
+          <OwnerButton
+            title="Xem lịch đặt"
+            className="flex-1"
+            onPress={() => router.replace('/(guest)/my-bookings')}
+          />
+          <OwnerButton
+            title="Về trang chủ"
+            outline
+            className="flex-1"
+            onPress={() => router.replace('/(guest)/explore')}
+          />
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }

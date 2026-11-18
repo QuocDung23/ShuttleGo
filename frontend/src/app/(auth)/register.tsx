@@ -140,7 +140,6 @@ export default function RegisterPage() {
             icon={{ ios: 'lock', android: 'lock', web: 'lock' }}
             trailingIcon={{ ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }}
             floatingLabel={false}
-            helper="Tối thiểu 6 ký tự."
             value={password}
             onChangeText={(v) => {
               setPassword(v);
@@ -152,10 +151,6 @@ export default function RegisterPage() {
           {errors.password ? <OwnerText className="px-1 text-caption text-error">{errors.password}</OwnerText> : null}
         </View>
         {errors.general ? <OwnerText className="px-1 text-error">{errors.general}</OwnerText> : null}
-        <OwnerText tone="muted" className="px-1 text-center text-caption">
-          Bằng việc tiếp tục, bạn đồng ý với <InlineLink>Điều khoản sử dụng</InlineLink> và{' '}
-          <InlineLink>Chính sách bảo mật</InlineLink> của ShuttleGo.
-        </OwnerText>
       </View>
     </AuthScaffold>
   );

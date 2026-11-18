@@ -14,7 +14,7 @@ export function GuestProfileScreen() {
   const isSignedIn = !!user;
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-guest-background">
+    <SafeAreaView edges={["top"]} className="flex-1 bg-guest-background">
       <View className="w-full max-w-[560px] flex-1 self-center px-4 pb-6 pt-3">
         <OwnerText className="font-familjen-bold text-headline-lg text-guest-on-surface">
           Tài khoản

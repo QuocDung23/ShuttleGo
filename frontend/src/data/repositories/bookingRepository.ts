@@ -7,6 +7,14 @@ import type {
 } from '@/models/booking';
 import type { Paginated } from '@/models/venue';
 
+const availabilityCache = new Map<string, VenueAvailability>();
+const availabilityRequests = new Map<string, Promise<VenueAvailability>>();
+const availabilityVersions = new Map<string, number>();
+
+function availabilityKey(venueId: number, date: string) {
+  return `${venueId}:${date}`;
+}
+
 export type ListBookingsParams = {
   page?: number;
   limit?: number;
@@ -30,12 +38,40 @@ function toQuery(params: ListBookingsParams) {
 }
 
 export const bookingRepository = {
+  getCachedVenueAvailability(venueId: number, date: string) {
+    return availabilityCache.get(availabilityKey(venueId, date)) ?? null;
+  },
+
+  setCachedVenueAvailability(availability: VenueAvailability) {
+    const key = availabilityKey(availability.venueId, availability.date);
+    availabilityVersions.set(key, (availabilityVersions.get(key) ?? 0) + 1);
+    availabilityRequests.delete(key);
+    availabilityCache.set(key, availability);
+  },
+
   /** Public endpoint — no PII of other customers is returned. */
   getVenueAvailability(venueId: number, date: string) {
+    const key = availabilityKey(venueId, date);
+    const pending = availabilityRequests.get(key);
+    if (pending) return pending;
+    const version = availabilityVersions.get(key) ?? 0;
     const query = new URLSearchParams({ date });
-    return apiRequest<VenueAvailability>(`/venues/${venueId}/availability?${query}`, {
+    const request = apiRequest<VenueAvailability>(`/venues/${venueId}/availability?${query}`, {
       auth: false,
-    });
+    })
+      .then((availability) => {
+        if ((availabilityVersions.get(key) ?? 0) === version) {
+          availabilityCache.set(key, availability);
+        }
+        return availability;
+      })
+      .finally(() => {
+        if (availabilityRequests.get(key) === request) {
+          availabilityRequests.delete(key);
+        }
+      });
+    availabilityRequests.set(key, request);
+    return request;
   },
 
   getMyHold() {

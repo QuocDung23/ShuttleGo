@@ -1,12 +1,10 @@
 import { Image } from 'expo-image';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { useState } from 'react';
+import { View } from 'react-native';
 
-import { OwnerButton, OwnerChip, OwnerInput, OwnerText } from '@/components/ui/owner-ui';
+import { OwnerButton, OwnerInput, OwnerText } from '@/components/ui/owner-ui';
 import { pickVenueImage } from '@/components/venue/pickVenueImage';
-import { amenityRepository } from '@/data/repositories/amenityRepository';
 import type { OwnerSetupVenueInfo } from '@/features/venue/ownerSetupContext';
-import type { Amenity } from '@/models/venue';
 
 export function VenueInfoForm({
   value,
@@ -15,37 +13,7 @@ export function VenueInfoForm({
   value: OwnerSetupVenueInfo;
   onChange: (patch: Partial<OwnerSetupVenueInfo>) => void;
 }) {
-  const [amenities, setAmenities] = useState<Amenity[]>([]);
-  const [amenitiesLoading, setAmenitiesLoading] = useState(true);
-  const [amenitiesError, setAmenitiesError] = useState('');
   const [pickingCover, setPickingCover] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    void amenityRepository
-      .list()
-      .then((items) => {
-        if (active) setAmenities(items);
-      })
-      .catch(() => {
-        if (active) setAmenitiesError('Không tải được danh sách tiện ích.');
-      })
-      .finally(() => {
-        if (active) setAmenitiesLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const toggleAmenity = (id: number) => {
-    const selected = value.amenityIds.includes(id);
-    onChange({
-      amenityIds: selected
-        ? value.amenityIds.filter((amenityId) => amenityId !== id)
-        : [...value.amenityIds, id],
-    });
-  };
 
   const selectCoverImage = async () => {
     setPickingCover(true);
@@ -102,24 +70,6 @@ export function VenueInfoForm({
         value={value.description}
         onChangeText={(description) => onChange({ description })}
       />
-      <View className="my-2.5 h-px bg-divider" />
-      <OwnerText className="font-familjen-semibold">Tiện ích</OwnerText>
-      <View className="flex-row flex-wrap gap-2">
-        {amenities.map((amenity) => (
-          <OwnerChip
-            key={amenity.id}
-            title={amenity.name}
-            selected={value.amenityIds.includes(amenity.id)}
-            onPress={() => toggleAmenity(amenity.id)}
-          />
-        ))}
-        {amenitiesLoading ? <ActivityIndicator /> : null}
-        {!amenitiesLoading && amenities.length === 0 ? (
-          <OwnerText tone="muted" className="text-caption">
-            {amenitiesError || 'Chưa có tiện ích để chọn.'}
-          </OwnerText>
-        ) : null}
-      </View>
     </>
   );
 }

@@ -22,9 +22,11 @@ function toDays(hours: OperatingHour[]): OpeningHoursDay[] {
 
 export function useHoursViewModel() {
   const { primaryVenue, loading: accessLoading, error: accessError } = useOwnerVenueAccess();
-  const [days, setDays] = useState<OpeningHoursDay[]>([]);
-  const [venueId, setVenueId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const primaryVenueId = primaryVenue?.id ?? null;
+  const cached = primaryVenueId === null ? null : operatingHourRepository.getCached(primaryVenueId);
+  const [days, setDays] = useState<OpeningHoursDay[]>(() => cached ? toDays(cached) : []);
+  const [venueId, setVenueId] = useState<number | null>(cached ? primaryVenueId : null);
+  const [loading, setLoading] = useState(cached === null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -37,23 +39,30 @@ export function useHoursViewModel() {
         setLoading(false);
         return;
       }
-      if (!primaryVenue) {
+      if (primaryVenueId === null) {
         setError("Không tìm thấy thông tin sân của tài khoản này.");
         setLoading(false);
         return;
       }
 
-      setLoading(true);
+      const previous = operatingHourRepository.getCached(primaryVenueId);
+      if (previous) {
+        setVenueId(primaryVenueId);
+        setDays(toDays(previous));
+      }
+      setLoading(previous === null);
       setError("");
       void operatingHourRepository
-        .list(primaryVenue.id)
+        .list(primaryVenueId)
         .then((hours) => {
           if (!active) return;
-          setVenueId(primaryVenue.id);
+          setVenueId(primaryVenueId);
           setDays(toDays(hours));
         })
         .catch((e) => {
-          if (active) setError(e instanceof Error ? e.message : "Không tải được giờ mở cửa.");
+          if (active && previous === null) {
+            setError(e instanceof Error ? e.message : "Không tải được giờ mở cửa.");
+          }
         })
         .finally(() => {
           if (active) setLoading(false);
@@ -63,7 +72,7 @@ export function useHoursViewModel() {
     return () => {
       active = false;
     };
-  }, [accessError, accessLoading, primaryVenue]);
+  }, [accessError, accessLoading, primaryVenueId]);
 
   const setDay = useCallback((dayOfWeek: number, patch: Partial<OpeningHoursDay>) => {
     setDays((current) =>

@@ -15,28 +15,49 @@ function toAppNotification(item: ApiNotification): AppNotification {
   };
 }
 
+type NotificationsSnapshot = {
+  notifications: AppNotification[];
+  unreadIds: Set<string>;
+};
+
+const notificationsCache = new Map<number, NotificationsSnapshot>();
+
 export function useNotificationsFeed() {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
+  const cacheKey = user?.id ?? 0;
+  const cached = notificationsCache.get(cacheKey);
+  const [notifications, setNotifications] = useState<AppNotification[]>(cached?.notifications ?? []);
+  const [unreadIds, setUnreadIds] = useState<Set<string>>(() => cached?.unreadIds ?? new Set());
+  const [loading, setLoading] = useState(cached === undefined);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
-      setLoading(true);
+      const previous = notificationsCache.get(cacheKey);
+      if (previous) {
+        setNotifications(previous.notifications);
+        setUnreadIds(previous.unreadIds);
+      }
+      setLoading(previous === undefined);
       setError("");
       void notificationRepository
         .list()
         .then((res) => {
           if (!active) return;
-          setNotifications(res.data.map(toAppNotification));
-          setUnreadIds(new Set(res.data.filter((item) => !item.isRead).map((item) => String(item.id))));
+          const next = {
+            notifications: res.data.map(toAppNotification),
+            unreadIds: new Set(res.data.filter((item) => !item.isRead).map((item) => String(item.id))),
+          };
+          notificationsCache.set(cacheKey, next);
+          setNotifications(next.notifications);
+          setUnreadIds(next.unreadIds);
         })
         .catch((e) => {
-          if (active) setError(e instanceof Error ? e.message : "Không tải được thông báo.");
+          if (active && previous === undefined) {
+            setError(e instanceof Error ? e.message : "Không tải được thông báo.");
+          }
         })
         .finally(() => {
           if (active) setLoading(false);
@@ -46,28 +67,35 @@ export function useNotificationsFeed() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [cacheKey]);
 
   const markRead = useCallback((id: string) => {
     setUnreadIds((current) => {
       const next = new Set(current);
       next.delete(id);
+      notificationsCache.set(cacheKey, { notifications, unreadIds: next });
       return next;
     });
     void notificationRepository.markRead(Number(id)).catch(() => {
       // Revert the optimistic update if the server rejects the change.
-      setUnreadIds((current) => new Set(current).add(id));
+      setUnreadIds((current) => {
+        const next = new Set(current).add(id);
+        notificationsCache.set(cacheKey, { notifications, unreadIds: next });
+        return next;
+      });
     });
-  }, []);
+  }, [cacheKey, notifications]);
 
   const markAllRead = useCallback(() => {
     const previous = unreadIds;
     setUnreadIds(new Set());
+    notificationsCache.set(cacheKey, { notifications, unreadIds: new Set() });
     if (!user) return;
     void notificationRepository.markAllRead(user.id).catch(() => {
       setUnreadIds(previous);
+      notificationsCache.set(cacheKey, { notifications, unreadIds: previous });
     });
-  }, [unreadIds, user]);
+  }, [cacheKey, notifications, unreadIds, user]);
 
   return { notifications, unreadIds, markRead, markAllRead, loading, error };
 }

@@ -1,17 +1,20 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
 import { useAuth } from '@/features/auth/AuthContext';
+import { adminVenueCache } from '@/features/admin/adminVenueCache';
 import { adminVenueRepository } from '@/features/admin/adminVenueRepository';
 import type { AdminVenue, AdminVenueStatus } from '@/features/admin/adminVenue';
 import { useRealtimeRefresh } from '@/features/realtime/RealtimeProvider';
 
 export function useAdminVenueDetailViewModel(id: number) {
   const { user } = useAuth();
-  const [venue, setVenue] = useState<AdminVenue | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const cached = adminVenueCache.get(id);
+  const [venue, setVenue] = useState<AdminVenue | null>(cached);
+  const [isLoading, setIsLoading] = useState(cached === null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hasDataRef = useRef(cached !== null);
 
   const refresh = useCallback(async () => {
     if (!Number.isInteger(id) || id < 1) {
@@ -19,12 +22,17 @@ export function useAdminVenueDetailViewModel(id: number) {
       setIsLoading(false);
       return;
     }
-    setIsLoading(true);
+    if (!hasDataRef.current) setIsLoading(true);
     setError(null);
     try {
-      setVenue(await adminVenueRepository.get(id));
+      const next = await adminVenueRepository.get(id);
+      adminVenueCache.set(next);
+      hasDataRef.current = true;
+      setVenue(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Không tải được thông tin sân.');
+      if (!hasDataRef.current) {
+        setError(err instanceof Error ? err.message : 'Không tải được thông tin sân.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +55,9 @@ export function useAdminVenueDetailViewModel(id: number) {
       setIsSubmitting(true);
       setError(null);
       try {
-        setVenue(await adminVenueRepository.review(id, { status, reviewedBy: user.id, reviewNote }));
+        const next = await adminVenueRepository.review(id, { status, reviewedBy: user.id, reviewNote });
+        adminVenueCache.set(next);
+        setVenue(next);
         return true;
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Không thể cập nhật trạng thái sân.');

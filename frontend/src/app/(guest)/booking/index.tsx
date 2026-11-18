@@ -44,6 +44,38 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof ApiError ? error.message || fallback : fallback;
 }
 
+function updateOwnHold(
+  availability: VenueAvailability | null,
+  previous: BookingHold | null,
+  next: BookingHold | null,
+) {
+  if (!availability) return null;
+  let changed = false;
+  const courts = availability.courts.map((court) => {
+    let heldRanges = court.heldRanges;
+    if (previous?.bookingDate === availability.date && previous.courtId === court.id) {
+      const filtered = heldRanges.filter(
+        (range) =>
+          range.startTime !== previous.startTime || range.endTime !== previous.endTime,
+      );
+      changed ||= filtered.length !== heldRanges.length;
+      heldRanges = filtered;
+    }
+    if (
+      next?.bookingDate === availability.date &&
+      next.courtId === court.id &&
+      !heldRanges.some(
+        (range) => range.startTime === next.startTime && range.endTime === next.endTime,
+      )
+    ) {
+      heldRanges = [...heldRanges, { startTime: next.startTime, endTime: next.endTime }];
+      changed = true;
+    }
+    return heldRanges === court.heldRanges ? court : { ...court, heldRanges };
+  });
+  return changed ? { ...availability, courts } : availability;
+}
+
 export default function BookingDetailsPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ venueId?: string }>();
@@ -54,13 +86,17 @@ export default function BookingDetailsPage() {
 
   const days = useMemo(() => buildDays(7), []);
   const [selectedDate, setSelectedDate] = useState(days[0].key);
+  const cachedVenue = validVenueId ? venueRepository.getCached(venueId) : null;
+  const cachedAvailability = validVenueId
+    ? bookingRepository.getCachedVenueAvailability(venueId, selectedDate)
+    : null;
 
-  const [venue, setVenue] = useState<Venue | null>(null);
+  const [venue, setVenue] = useState<Venue | null>(cachedVenue);
   const [availability, setAvailability] = useState<VenueAvailability | null>(
-    null,
+    cachedAvailability,
   );
-  const [loadingVenue, setLoadingVenue] = useState(true);
-  const [loadingAvailability, setLoadingAvailability] = useState(false);
+  const [loadingVenue, setLoadingVenue] = useState(cachedVenue === null);
+  const [loadingAvailability, setLoadingAvailability] = useState(cachedAvailability === null);
   const [venueError, setVenueError] = useState("");
   const [availabilityError, setAvailabilityError] = useState("");
 
@@ -70,6 +106,7 @@ export default function BookingDetailsPage() {
   const [holdUpdating, setHoldUpdating] = useState(false);
   const [clockNow, setClockNow] = useState(() => Date.now());
   const holdRequestRef = useRef(false);
+  const availabilityRevisionRef = useRef(0);
   const [reloadKey, setReloadKey] = useState(0);
 
   const [submitting, setSubmitting] = useState(false);
@@ -88,18 +125,35 @@ export default function BookingDetailsPage() {
     );
   }, []);
 
+  const syncOwnHold = useCallback(
+    (previous: BookingHold | null, next: BookingHold | null) => {
+      const dates = new Set<string>();
+      if (previous) dates.add(previous.bookingDate);
+      if (next) dates.add(next.bookingDate);
+      dates.forEach((date) => {
+        const cached = bookingRepository.getCachedVenueAvailability(venueId, date);
+        const updated = updateOwnHold(cached, previous, next);
+        if (updated) bookingRepository.setCachedVenueAvailability(updated);
+      });
+      setAvailability((current) => updateOwnHold(current, previous, next));
+    },
+    [venueId],
+  );
+
   // Venue detail (name, address, bank info, price rules) is loaded once.
   useEffect(() => {
     if (!validVenueId) return;
     let cancelled = false;
     (async () => {
+      const previous = venueRepository.getCached(venueId);
       try {
-        setLoadingVenue(true);
+        if (previous) setVenue(previous);
+        setLoadingVenue(previous === null);
         setVenueError("");
         const data = await venueRepository.get(venueId);
         if (!cancelled) setVenue(data);
       } catch (error) {
-        if (!cancelled)
+        if (!cancelled && previous === null)
           setVenueError(errorMessage(error, "Không thể tải thông tin sân."));
       } finally {
         if (!cancelled) setLoadingVenue(false);
@@ -114,16 +168,21 @@ export default function BookingDetailsPage() {
   useEffect(() => {
     if (!validVenueId) return;
     let cancelled = false;
+    const revision = availabilityRevisionRef.current;
     (async () => {
+      const previous = bookingRepository.getCachedVenueAvailability(
+        venueId,
+        selectedDate,
+      );
       try {
-        setLoadingAvailability(true);
+        if (previous) setAvailability(previous);
+        setLoadingAvailability(previous === null);
         setAvailabilityError("");
-        setSelectedSlotIndexes([]);
         const data = await bookingRepository.getVenueAvailability(
           venueId,
           selectedDate,
         );
-        if (cancelled) return;
+        if (cancelled || revision !== availabilityRevisionRef.current) return;
         setAvailability(data);
         setSelectedCourtId((previous) =>
           data.courts.some((court) => court.id === previous)
@@ -131,7 +190,7 @@ export default function BookingDetailsPage() {
             : (data.courts[0]?.id ?? null),
         );
       } catch (error) {
-        if (!cancelled) {
+        if (!cancelled && previous === null) {
           setAvailabilityError(
             errorMessage(error, "Không thể tải lịch trống."),
           );
@@ -153,10 +212,17 @@ export default function BookingDetailsPage() {
       return;
     }
     let cancelled = false;
+    const revision = availabilityRevisionRef.current;
     bookingRepository
       .getMyHold()
       .then((hold) => {
-        if (!cancelled) applyHold(hold);
+        if (
+          !cancelled &&
+          revision === availabilityRevisionRef.current &&
+          !holdRequestRef.current
+        ) {
+          applyHold(hold);
+        }
       })
       .catch(() => {
         if (!cancelled) setActiveHold(null);
@@ -171,10 +237,22 @@ export default function BookingDetailsPage() {
     selectedDate,
     () => {
       setReloadKey((value) => value + 1);
-      if (status === "signedIn" && user?.role === "player") {
+      if (
+        status === "signedIn" &&
+        user?.role === "player" &&
+        !holdRequestRef.current
+      ) {
+        const revision = availabilityRevisionRef.current;
         void bookingRepository
           .getMyHold()
-          .then(applyHold)
+          .then((hold) => {
+            if (
+              revision === availabilityRevisionRef.current &&
+              !holdRequestRef.current
+            ) {
+              applyHold(hold);
+            }
+          })
           .catch(() => undefined);
       }
     },
@@ -226,11 +304,13 @@ export default function BookingDetailsPage() {
   useEffect(() => {
     if (holdRemainingMs > 0 || !activeHold) return;
     queueMicrotask(() => {
+      availabilityRevisionRef.current += 1;
+      syncOwnHold(activeHold, null);
       setActiveHold(null);
       setSelectedSlotIndexes([]);
       setReloadKey((value) => value + 1);
     });
-  }, [activeHold, holdRemainingMs]);
+  }, [activeHold, holdRemainingMs, syncOwnHold]);
 
   // Restore the selected range represented by the server-side hold.
   useEffect(() => {
@@ -261,7 +341,12 @@ export default function BookingDetailsPage() {
         .map(({ index }) => index);
       if (indexes.length > 0) {
         setSelectedCourtId(activeHold.courtId);
-        setSelectedSlotIndexes(indexes);
+        setSelectedSlotIndexes((previous) =>
+          previous.length === indexes.length &&
+          previous.every((value, index) => value === indexes[index])
+            ? previous
+            : indexes,
+        );
       }
     });
     return () => {
@@ -333,15 +418,20 @@ export default function BookingDetailsPage() {
 
   const releaseHold = async () => {
     if (holdRequestRef.current) return;
+    const previousHold = activeHold;
     holdRequestRef.current = true;
+    availabilityRevisionRef.current += 1;
     setHoldUpdating(true);
+    syncOwnHold(previousHold, null);
     setActiveHold(null);
     setSelectedSlotIndexes([]);
     try {
       if (status === "signedIn" && user?.role === "player") {
         await bookingRepository.releaseMyHold();
       }
+      syncOwnHold(previousHold, null);
     } catch {
+      syncOwnHold(null, previousHold);
       // The server will expire an unreachable hold after four minutes.
     } finally {
       holdRequestRef.current = false;
@@ -364,6 +454,7 @@ export default function BookingDetailsPage() {
     if (status !== "signedIn" || user?.role !== "player") return;
 
     const previous = [...selectedSlotIndexes];
+    const previousHold = activeHold;
     let next: number[];
     if (previous.includes(index)) {
       next = previous.filter((value) => value !== index);
@@ -384,12 +475,14 @@ export default function BookingDetailsPage() {
 
     setSubmitError("");
     holdRequestRef.current = true;
+    availabilityRevisionRef.current += 1;
     setHoldUpdating(true);
     try {
       if (next.length === 0) {
-        await bookingRepository.releaseMyHold();
+        syncOwnHold(previousHold, null);
         setActiveHold(null);
         setSelectedSlotIndexes([]);
+        await bookingRepository.releaseMyHold();
       } else {
         const ordered = [...next].sort((a, b) => a - b);
         const first = slots[ordered[0]];
@@ -400,10 +493,16 @@ export default function BookingDetailsPage() {
           startTime: first.startTime,
           endTime: last.endTime,
         });
+        syncOwnHold(previousHold, hold);
         setActiveHold(hold);
         setSelectedSlotIndexes(ordered);
       }
     } catch (error) {
+      if (next.length === 0) {
+        syncOwnHold(null, previousHold);
+        setActiveHold(previousHold);
+        setSelectedSlotIndexes(previous);
+      }
       setSubmitError(
         errorMessage(error, "Không thể giữ khung giờ. Vui lòng thử lại."),
       );
@@ -455,6 +554,8 @@ export default function BookingDetailsPage() {
       }
       if (error instanceof ApiError && error.status === 409) {
         setSubmitError("Khung giờ vừa thay đổi. Vui lòng chọn giờ khác.");
+        availabilityRevisionRef.current += 1;
+        syncOwnHold(activeHold, null);
         setSelectedSlotIndexes([]);
         setActiveHold(null);
         await bookingRepository.releaseMyHold().catch(() => undefined);
@@ -544,6 +645,13 @@ export default function BookingDetailsPage() {
                   onPress={() => {
                     if (holdRequestRef.current) return;
                     if (day.key === selectedDate) return;
+                    const nextAvailability = bookingRepository.getCachedVenueAvailability(
+                      venueId,
+                      day.key,
+                    );
+                    setAvailability(nextAvailability);
+                    setLoadingAvailability(nextAvailability === null);
+                    setAvailabilityError("");
                     setSelectedDate(day.key);
                     void releaseHold();
                   }}
@@ -726,14 +834,13 @@ export default function BookingDetailsPage() {
           <ScheduleLegend />
       </ScrollView>
 
-      {/* Bottom bar */}
       <View className="border-t border-guest-outline bg-guest-surface px-5 pb-5 pt-3">
         <View className="mb-3 flex-row items-center justify-between">
           <View>
             <OwnerText className="text-body text-guest-on-surface-variant">
               {summary}
             </OwnerText>
-            <OwnerText className="text-body text-guest-on-surface-variant">
+            <OwnerText className="h-6 text-body text-guest-on-surface-variant">
               {timeRange}
             </OwnerText>
           </View>
@@ -741,25 +848,23 @@ export default function BookingDetailsPage() {
             {total !== null ? formatMoney(total) : "0đ"}
           </OwnerText>
         </View>
-        {activeHold && holdRemainingMs > 0 && ownHoldMatches ? (
-          <OwnerText className="mb-2 text-center text-[11px] leading-4 text-guest-on-surface-variant">
-            Còn giữ giờ {formatCountdown(holdRemainingMs)}
-          </OwnerText>
-        ) : null}
+        <View className="mb-2 h-4 justify-center">
+          {activeHold && holdRemainingMs > 0 && ownHoldMatches ? (
+            <OwnerText className="text-center text-[11px] leading-4 text-guest-on-surface-variant">
+              Còn giữ giờ {formatCountdown(holdRemainingMs)}
+            </OwnerText>
+          ) : null}
+        </View>
         <OwnerButton
           title={
             status === "signedOut"
               ? "Đăng nhập để đặt"
-              : holdUpdating
-                ? "Đang giữ giờ..."
-                : submitting
-                  ? "Đang đặt sân..."
-                  : "Đặt ngay"
+              : submitting
+                ? "Đang đặt sân..."
+                : "Đặt ngay"
           }
           disabled={
             submitting ||
-            holdUpdating ||
-            selectedSlots.length === 0 ||
             total === null ||
             !bankReady ||
             !activeHold ||

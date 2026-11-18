@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { Pressable, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { OwnerText } from "@/components/ui/owner-ui";
 import { colors } from "@/shared/theme";
@@ -35,38 +36,45 @@ const tabs = [
 
 export function GuestTabBar({ active }: { active: GuestTab }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View className="min-h-[70px] flex-row items-center justify-around border-t border-guest-outline bg-guest-surface px-4 pb-1">
-      {tabs.map((tab) => {
-        const selected = active === tab.key;
-        return (
-          <Pressable
-            key={tab.key}
-            accessibilityRole="tab"
-            accessibilityState={{ selected }}
-            onPress={() => router.replace(tab.path)}
-            className="min-w-[88px] items-center gap-1"
-          >
-            <View
-              className={`h-8 w-16 items-center justify-center rounded-full ${selected ? "bg-guest-selected" : ""}`}
+    <View
+      className="border-t border-guest-outline bg-guest-surface"
+      style={{ height: 68 + insets.bottom, paddingBottom: insets.bottom }}
+    >
+      <View className="w-full max-w-[500px] flex-1 flex-row self-center px-3">
+        {tabs.map((tab) => {
+          const selected = active === tab.key;
+          return (
+            <Pressable
+              key={tab.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              onPress={() => router.replace(tab.path)}
+              className="h-full pt-5 flex-1 items-center justify-center gap-1"
             >
-              <SymbolView
-                name={tab.icon}
-                size={21}
-                tintColor={
-                  selected ? colors.guestSelectedInk : colors.guestOnSurfaceVariant
-                }
-              />
-            </View>
-            <OwnerText
-              className={`text-caption ${selected ? "font-familjen-semibold text-guest-on-surface" : "text-guest-on-surface-variant"}`}
-            >
-              {tab.label}
-            </OwnerText>
-          </Pressable>
-        );
-      })}
+              <View
+                className={`h-8 w-16 items-center justify-center rounded-full ${selected ? "bg-guest-selected" : ""}`}
+              >
+                <SymbolView
+                  name={tab.icon}
+                  size={21}
+                  tintColor={
+                    selected ? colors.guestSelectedInk : colors.guestOnSurfaceVariant
+                  }
+                />
+              </View>
+              <OwnerText
+                numberOfLines={1}
+                className={`text-center text-caption ${selected ? "font-familjen-semibold text-guest-on-surface" : "text-guest-on-surface-variant"}`}
+              >
+                {tab.label}
+              </OwnerText>
+            </Pressable>
+          );
+        })}
+      </View>
     </View>
   );
 }

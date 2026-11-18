@@ -74,30 +74,41 @@ function toDetail(booking: ApiBooking): BookingDetail {
   };
 }
 
+type ScheduleSnapshot = {
+  courts: ScheduleCourt[];
+  bookings: ApiBooking[];
+  isClosed: boolean;
+};
+
+const scheduleCache = new Map<string, ScheduleSnapshot>();
+
 export function useScheduleViewModel() {
   const { primaryVenue, loading: accessLoading, error: accessError } = useOwnerVenueAccess();
+  const venueId = primaryVenue?.id ?? null;
   const dates = useMemo(() => buildDates(), []);
   const [selectedDateIndex, setSelectedDateIndex] = useState(0);
-  const [courts, setCourts] = useState<ScheduleCourt[]>([]);
-  const [bookings, setBookings] = useState<ApiBooking[]>([]);
-  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
-  const [isBookingDetailVisible, setBookingDetailVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [isClosed, setIsClosed] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
-
-  const selectedDate = dates[selectedDateIndex]?.label;
-  const selectedDayOfWeek = dates[selectedDateIndex]?.dayOfWeek;
   const dateKey = useMemo(() => {
     const today = new Date();
     const date = new Date(today);
     date.setDate(today.getDate() + selectedDateIndex);
     return toDateKey(date);
   }, [selectedDateIndex]);
+  const cacheKey = venueId === null ? null : `${venueId}:${dateKey}`;
+  const cached = cacheKey === null ? undefined : scheduleCache.get(cacheKey);
+  const [courts, setCourts] = useState<ScheduleCourt[]>(cached?.courts ?? []);
+  const [bookings, setBookings] = useState<ApiBooking[]>(cached?.bookings ?? []);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
+  const [isBookingDetailVisible, setBookingDetailVisible] = useState(false);
+  const [loading, setLoading] = useState(cached === undefined);
+  const [error, setError] = useState("");
+  const [isClosed, setIsClosed] = useState(cached?.isClosed ?? false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const selectedDate = dates[selectedDateIndex]?.label;
+  const selectedDayOfWeek = dates[selectedDateIndex]?.dayOfWeek;
 
   const requestReload = useCallback(() => setReloadKey((value) => value + 1), []);
-  useScheduleSubscription(primaryVenue?.id, dateKey, requestReload);
+  useScheduleSubscription(venueId ?? undefined, dateKey, requestReload);
   useRealtimeRefresh(["booking.payment_reported"], requestReload);
 
   useEffect(() => {
@@ -109,17 +120,23 @@ export function useScheduleViewModel() {
         setLoading(false);
         return;
       }
-      if (!primaryVenue) {
+      if (venueId === null || cacheKey === null) {
         setError("Không tìm thấy thông tin sân của tài khoản này.");
         setLoading(false);
         return;
       }
 
-      setLoading(true);
+      const previous = scheduleCache.get(cacheKey);
+      if (previous) {
+        setCourts(previous.courts);
+        setBookings(previous.bookings);
+        setIsClosed(previous.isClosed);
+      }
+      setLoading(previous === undefined);
       setError("");
       void Promise.all([
-        venueRepository.get(primaryVenue.id),
-        bookingRepository.listAll({ venueId: primaryVenue.id, date: dateKey }),
+        venueRepository.get(venueId),
+        bookingRepository.listAll({ venueId, date: dateKey }),
       ])
         .then(([venue, dayBookings]) => {
           if (!active) return;
@@ -136,8 +153,7 @@ export function useScheduleViewModel() {
                 openingHours?.closeTime ?? DEFAULT_CLOSE_TIME,
               );
           const activeCourts = (venue.courts ?? []).filter((court) => court.isActive !== false);
-          setCourts(
-            activeCourts.map((court) => ({
+          const nextCourts = activeCourts.map((court) => ({
               id: court.id,
               name: court.name,
               slots: slotHours.map((hour) => {
@@ -157,11 +173,14 @@ export function useScheduleViewModel() {
                   bookingId: booking?.id,
                 };
               }),
-            })),
-          );
+            }));
+          setCourts(nextCourts);
+          scheduleCache.set(cacheKey, { courts: nextCourts, bookings: dayBookings, isClosed: closed });
         })
         .catch((e) => {
-          if (active) setError(e instanceof Error ? e.message : "Không tải được lịch sân.");
+          if (active && previous === undefined) {
+            setError(e instanceof Error ? e.message : "Không tải được lịch sân.");
+          }
         })
         .finally(() => {
           if (active) setLoading(false);
@@ -171,7 +190,7 @@ export function useScheduleViewModel() {
     return () => {
       active = false;
     };
-  }, [accessError, accessLoading, primaryVenue, dateKey, selectedDayOfWeek, reloadKey]);
+  }, [accessError, accessLoading, cacheKey, dateKey, reloadKey, selectedDayOfWeek, venueId]);
 
   const selectDate = useCallback((index: number) => {
     setSelectedDateIndex(index);

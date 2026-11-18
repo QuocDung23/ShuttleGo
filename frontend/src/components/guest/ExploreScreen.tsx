@@ -2,7 +2,13 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GuestTabBar } from "@/components/guest/GuestTabBar";
@@ -33,6 +39,8 @@ const filters: { label: string; icon: SymbolViewProps["name"] }[] = [
 const DEFAULT_VENUE_IMAGE =
   "https://images.unsplash.com/photo-1775993167393-f2add1f8eec2?auto=format&fit=crop&w=1200&q=80";
 
+let exploreVenueCache: Venue[] | null = null;
+
 function formatVnd(value: number) {
   return `${value.toLocaleString("vi-VN")}đ`;
 }
@@ -47,20 +55,26 @@ function getPriceFrom(venue: Venue) {
 export function ExploreScreen() {
   const router = useRouter();
   const [selectedFilter, setSelectedFilter] = useState("");
-  const [venues, setVenues] = useState<Venue[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [venues, setVenues] = useState<Venue[]>(() => exploreVenueCache ?? []);
+  const [loading, setLoading] = useState(exploreVenueCache === null);
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        setLoading(true);
+        setLoading(exploreVenueCache === null);
         setError("");
-        const res = await venueRepository.list({ status: "approved", limit: 50 });
+        const res = await venueRepository.list({
+          status: "approved",
+          limit: 50,
+        });
+        exploreVenueCache = res.data;
         if (!cancelled) setVenues(res.data);
       } catch {
-        if (!cancelled) setError("Không thể tải danh sách sân. Vui lòng thử lại.");
+        if (!cancelled && exploreVenueCache === null) {
+          setError("Không thể tải danh sách sân. Vui lòng thử lại.");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -76,46 +90,18 @@ export function ExploreScreen() {
   }, [loading, venues.length]);
 
   return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
-      className="flex-1 bg-guest-background"
-    >
+    <SafeAreaView edges={["top"]} className="flex-1 bg-guest-background">
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerClassName="w-full max-w-[560px] self-center gap-5 px-4 pb-5 pt-2"
       >
         <View className="flex-row items-center justify-between">
           <View className="gap-1">
-            <View className="flex-row items-center gap-1.5">
-              <SymbolView
-                name={{
-                  ios: "mappin.and.ellipse",
-                  android: "location_on",
-                  web: "location_on",
-                }}
-                size={15}
-                tintColor={colors.guestOnSurfaceVariant}
-              />
-              <OwnerText className="font-familjen-medium text-caption text-guest-on-surface-variant">
-                Quận 10, TP. Hồ Chí Minh
-              </OwnerText>
-            </View>
             <OwnerText className="font-familjen-bold text-headline-lg text-guest-on-surface">
               ShuttleGo
             </OwnerText>
           </View>
           <View className="flex-row items-center gap-5">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Xem bản đồ"
-              className="h-11 w-8 items-center justify-center"
-            >
-              <SymbolView
-                name={{ ios: "map", android: "map", web: "map" }}
-                size={25}
-                tintColor={colors.guestOnSurface}
-              />
-            </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Thông báo"
@@ -150,7 +136,7 @@ export function ExploreScreen() {
           />
         </View>
 
-        <ScrollView
+        {/* <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerClassName="gap-2"
@@ -180,7 +166,7 @@ export function ExploreScreen() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </ScrollView> */}
 
         <View className="gap-3">
           <View className="flex-row items-center justify-between">
@@ -231,7 +217,8 @@ export function ExploreScreen() {
 
 function VenueCard({ venue }: { venue: Venue }) {
   const image = venue.coverImageUrl || DEFAULT_VENUE_IMAGE;
-  const location = [venue.district, venue.city].filter(Boolean).join(", ") || venue.address;
+  const location =
+    [venue.district, venue.city].filter(Boolean).join(", ") || venue.address;
   const courtsCount = venue.courts?.length ?? 0;
 
   return (

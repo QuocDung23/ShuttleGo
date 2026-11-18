@@ -9,6 +9,7 @@ export function SettingsPage({
   onBack,
   onSave,
   disabled = false,
+  showSave = true,
   children,
 }: PropsWithChildren<{
   title: string;
@@ -16,6 +17,7 @@ export function SettingsPage({
   onBack: () => void;
   onSave: () => void;
   disabled?: boolean;
+  showSave?: boolean;
 }>) {
   return (
     <OwnerPage scroll={false}>
@@ -23,9 +25,16 @@ export function SettingsPage({
       <ScrollView contentContainerClassName="w-full max-w-screen-sm self-center gap-3.5 px-4 pb-[18px] pt-2">
         {children}
       </ScrollView>
-      <View className="border-t border-divider bg-background px-4 pb-3.5 pt-3">
-        <OwnerButton title={saveTitle} onPress={onSave} disabled={disabled} />
-      </View>
+      {showSave ? (
+        <View className="items-center border-t border-divider bg-background px-4 pb-3.5 pt-3">
+          <OwnerButton
+            title={saveTitle}
+            onPress={onSave}
+            disabled={disabled}
+            className="w-[95%]"
+          />
+        </View>
+      ) : null}
     </OwnerPage>
   );
 }

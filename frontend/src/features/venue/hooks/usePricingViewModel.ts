@@ -47,11 +47,29 @@ function toPricing(venue: Venue): OwnerSetupPricing {
   };
 }
 
+function getCachedPricing(venueId: number | null) {
+  if (venueId === null) return null;
+  const venue = venueRepository.getCached(venueId);
+  if (!venue) return null;
+  try {
+    return { venueId: venue.id, pricing: toPricing(venue) };
+  } catch {
+    return null;
+  }
+}
+
 export function usePricingViewModel() {
   const { primaryVenue, loading: accessLoading, error: accessError } = useOwnerVenueAccess();
-  const [venueId, setVenueId] = useState<number | null>(null);
-  const [pricing, setPricingState] = useState<OwnerSetupPricing>(createEmptyOwnerSetupPricing);
-  const [loading, setLoading] = useState(true);
+  const primaryVenueId = primaryVenue?.id ?? null;
+  const cached = getCachedPricing(primaryVenueId);
+  const [venueId, setVenueId] = useState<number | null>(cached?.venueId ?? null);
+  const [pricing, setPricingState] = useState<OwnerSetupPricing>(() =>
+    cached?.pricing ?? createEmptyOwnerSetupPricing(),
+  );
+  const [savedPricing, setSavedPricing] = useState<OwnerSetupPricing | null>(
+    cached?.pricing ?? null,
+  );
+  const [loading, setLoading] = useState(cached === null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -64,24 +82,33 @@ export function usePricingViewModel() {
         setLoading(false);
         return;
       }
-      if (!primaryVenue) {
+      if (primaryVenueId === null) {
         setError('Không tìm thấy thông tin sân của tài khoản này.');
         setLoading(false);
         return;
       }
 
-      setLoading(true);
+      const previous = getCachedPricing(primaryVenueId);
+      if (previous) {
+        setVenueId(previous.venueId);
+        setPricingState(previous.pricing);
+        setSavedPricing(previous.pricing);
+      }
+      setLoading(previous === null);
       setError('');
-      setVenueId(null);
       void venueRepository
-        .get(primaryVenue.id)
+        .get(primaryVenueId)
         .then((venue) => {
           if (!active) return;
           setVenueId(venue.id);
-          setPricingState(toPricing(venue));
+          const nextPricing = toPricing(venue);
+          setPricingState(nextPricing);
+          setSavedPricing(nextPricing);
         })
         .catch((e) => {
-          if (active) setError(e instanceof Error ? e.message : 'Không tải được thông tin giá của sân.');
+          if (active && previous === null) {
+            setError(e instanceof Error ? e.message : 'Không tải được thông tin giá của sân.');
+          }
         })
         .finally(() => {
           if (active) setLoading(false);
@@ -91,7 +118,7 @@ export function usePricingViewModel() {
     return () => {
       active = false;
     };
-  }, [accessError, accessLoading, primaryVenue]);
+  }, [accessError, accessLoading, primaryVenueId]);
 
   const setPricing = useCallback((patch: Partial<OwnerSetupPricing>) => {
     setPricingState((prev) => ({ ...prev, ...patch }));
@@ -133,6 +160,7 @@ export function usePricingViewModel() {
         bankAccountHolder: pricing.bankAccountHolder.trim() || null,
         bankQrImageUrl: pricing.bankQrImageUrl.trim() || null,
       });
+      setSavedPricing(pricing);
       Alert.alert('Đã lưu', 'Giá và thông tin thanh toán đã được cập nhật.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể lưu giá. Vui lòng thử lại.');
@@ -141,5 +169,17 @@ export function usePricingViewModel() {
     }
   }, [pricing, venueId]);
 
-  return { pricing, setPricing, save, loading, saving, error, canSave: venueId !== null };
+  const hasChanges =
+    savedPricing !== null && JSON.stringify(pricing) !== JSON.stringify(savedPricing);
+
+  return {
+    pricing,
+    setPricing,
+    save,
+    loading,
+    saving,
+    error,
+    canSave: venueId !== null,
+    hasChanges,
+  };
 }

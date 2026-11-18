@@ -10,13 +10,23 @@ import type { PendingBooking } from "@/models/booking";
 import { closeMinutes, openMinutes } from "@/features/venue/ownerSetupContext";
 import { timeToMinutes, toDateKey } from "@/shared/format";
 
+type HomeSnapshot = {
+  venueName: string;
+  occupancyLabel: string;
+  pendingBookings: PendingBooking[];
+};
+
+const homeCache = new Map<number, HomeSnapshot>();
+
 export function useHomeViewModel() {
   const { primaryVenue, loading: accessLoading, error: accessError } = useOwnerVenueAccess();
+  const venueId = primaryVenue?.id ?? null;
+  const cached = venueId === null ? undefined : homeCache.get(venueId);
   const { setCount: setPendingCount } = usePendingBookingCount();
-  const [venueName, setVenueName] = useState("");
-  const [occupancyLabel, setOccupancyLabel] = useState("0/0 giờ");
-  const [pendingBookings, setPendingBookings] = useState<PendingBooking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [venueName, setVenueName] = useState(cached?.venueName ?? "");
+  const [occupancyLabel, setOccupancyLabel] = useState(cached?.occupancyLabel ?? "0/0 giờ");
+  const [pendingBookings, setPendingBookings] = useState<PendingBooking[]>(cached?.pendingBookings ?? []);
+  const [loading, setLoading] = useState(cached === undefined);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -34,16 +44,21 @@ export function useHomeViewModel() {
         setLoading(false);
         return;
       }
-      if (!primaryVenue) {
+      if (venueId === null) {
         setError("Không tìm thấy thông tin sân của tài khoản này.");
         setLoading(false);
         return;
       }
 
-      setLoading(true);
+      const previous = homeCache.get(venueId);
+      if (previous) {
+        setVenueName(previous.venueName);
+        setOccupancyLabel(previous.occupancyLabel);
+        setPendingBookings(previous.pendingBookings);
+      }
+      setLoading(previous === undefined);
       setError("");
-      const venueId = primaryVenue.id;
-      setVenueName(primaryVenue.name);
+      setVenueName(primaryVenue?.name ?? previous?.venueName ?? "");
 
       void Promise.all([
         venueRepository.get(venueId),
@@ -52,7 +67,8 @@ export function useHomeViewModel() {
       ])
         .then(([venue, pendingRes, todayRes]) => {
           if (!active) return;
-          setPendingBookings(pendingRes.data.map(toPendingBooking));
+          const nextPendingBookings = pendingRes.data.map(toPendingBooking);
+          setPendingBookings(nextPendingBookings);
           setPendingCount(pendingRes.meta.total);
 
           const courtCount = venue.courts?.filter((court) => court.isActive !== false).length ?? 0;
@@ -65,10 +81,18 @@ export function useHomeViewModel() {
               0,
             );
           const bookedHours = Math.round((bookedMinutes / 60) * 10) / 10;
-          setOccupancyLabel(`${bookedHours}/${totalHours} giờ`);
+          const nextOccupancyLabel = `${bookedHours}/${totalHours} giờ`;
+          setOccupancyLabel(nextOccupancyLabel);
+          homeCache.set(venueId, {
+            venueName: primaryVenue?.name ?? venue.name,
+            occupancyLabel: nextOccupancyLabel,
+            pendingBookings: nextPendingBookings,
+          });
         })
         .catch((e) => {
-          if (active) setError(e instanceof Error ? e.message : "Không tải được dữ liệu tổng quan.");
+          if (active && previous === undefined) {
+            setError(e instanceof Error ? e.message : "Không tải được dữ liệu tổng quan.");
+          }
         })
         .finally(() => {
           if (active) setLoading(false);
@@ -78,17 +102,24 @@ export function useHomeViewModel() {
     return () => {
       active = false;
     };
-  }, [accessError, accessLoading, primaryVenue, reloadKey, setPendingCount]);
+  }, [accessError, accessLoading, primaryVenue?.name, reloadKey, setPendingCount, venueId]);
 
   const resolveBooking = useCallback(async (id: string, status: "confirmed" | "cancelled") => {
     try {
       await bookingRepository.updateStatus(Number(id), status);
-      setPendingBookings((current) => current.filter((booking) => booking.id !== id));
+      setPendingBookings((current) => {
+        const next = current.filter((booking) => booking.id !== id);
+        if (venueId !== null) {
+          const snapshot = homeCache.get(venueId);
+          if (snapshot) homeCache.set(venueId, { ...snapshot, pendingBookings: next });
+        }
+        return next;
+      });
       setPendingCount((current) => Math.max(0, current - 1));
     } catch {
       // Keep the booking in the list so the owner can retry.
     }
-  }, [setPendingCount]);
+  }, [setPendingCount, venueId]);
 
   return { venueName, occupancyLabel, pendingBookings, resolveBooking, loading, error };
 }

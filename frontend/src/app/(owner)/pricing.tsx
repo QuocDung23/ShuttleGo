@@ -8,13 +8,14 @@ import { usePricingViewModel } from '@/features/venue/hooks/usePricingViewModel'
 
 export default function PricingPage() {
   const router = useRouter();
-  const { pricing, setPricing, save, loading, saving, error, canSave } = usePricingViewModel();
+  const { pricing, setPricing, save, loading, saving, error, canSave, hasChanges } = usePricingViewModel();
 
   return (
     <SettingsPage
       title="Giá theo khung giờ"
       saveTitle={loading ? 'Đang tải...' : saving ? 'Đang lưu...' : 'Lưu giá'}
       disabled={loading || saving || !canSave}
+      showSave={hasChanges || saving}
       onBack={() => {
         if (router.canGoBack()) router.back();
         else router.replace('/(owner)/dashboard');

@@ -14,6 +14,7 @@ export function AuthField({
   helper,
   floatingLabel = true,
   className = "",
+  secureTextEntry = false,
   ...props
 }: TextInputProps & {
   label: string;
@@ -23,6 +24,8 @@ export function AuthField({
   floatingLabel?: boolean;
   className?: string;
 }) {
+  const [passwordVisible, setPasswordVisible] = useState(false);
+
   return (
     <View className={`gap-2 ${className}`}>
       <View className="relative mt-2 min-h-[54px] flex-row items-center rounded-[10px] border border-outline bg-surface px-3">
@@ -44,15 +47,33 @@ export function AuthField({
             className="m-0 min-h-7 p-0 font-familjen text-[16px] leading-6 text-on-surface outline-none"
             placeholderTextColor={ownerColors.muted}
             placeholder={floatingLabel ? undefined : label}
+            secureTextEntry={secureTextEntry && !passwordVisible}
             {...props}
           />
         </View>
-        {trailingIcon ? (
-          <SymbolView
-            name={trailingIcon}
-            size={21}
-            tintColor={ownerColors.ink}
-          />
+        {secureTextEntry ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={passwordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+            accessibilityState={{ selected: passwordVisible }}
+            hitSlop={8}
+            onPress={() => setPasswordVisible((visible) => !visible)}
+            className="-mr-2 h-10 w-10 items-center justify-center"
+          >
+            <SymbolView
+              name={passwordVisible
+                ? { ios: "eye", android: "visibility", web: "visibility" }
+                : trailingIcon ?? {
+                    ios: "eye.slash",
+                    android: "visibility_off",
+                    web: "visibility_off",
+                  }}
+              size={21}
+              tintColor={ownerColors.ink}
+            />
+          </Pressable>
+        ) : trailingIcon ? (
+          <SymbolView name={trailingIcon} size={21} tintColor={ownerColors.ink} />
         ) : null}
       </View>
       {helper ? (
