@@ -44,5 +44,9 @@ export default function IndexPage() {
     return <Redirect href="/(owner)/dashboard" />;
   }
 
+  if (user?.role === 'admin') {
+    return <Redirect href="/admin/courts" />;
+  }
+
   return <OnboardingScreen />;
 }

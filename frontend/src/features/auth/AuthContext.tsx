@@ -58,13 +58,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (nextUser.status !== 'active') {
       throw new ApiError(403, { message: 'Tài khoản không hoạt động.' });
     }
-    if (nextUser.role === 'admin') {
-      const err = new ApiError(403, {
-        message: 'Tài khoản admin chưa được hỗ trợ trên ứng dụng.',
-      }) as ApiError & { unsupported?: boolean };
-      err.unsupported = true;
-      throw err;
-    }
     return nextUser;
   }, []);
 

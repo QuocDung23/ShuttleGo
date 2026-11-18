@@ -30,6 +30,8 @@ export default function LoginPage() {
       const user = await login({ phone: normalizedPhone, password });
       if (user.role === 'owner') {
         router.replace('/(owner)/dashboard');
+      } else if (user.role === 'admin') {
+        router.replace('/admin/courts');
       } else {
         router.replace('/(guest)/explore');
       }

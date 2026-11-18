@@ -4,6 +4,7 @@ import { Stack, usePathname } from 'expo-router';
 import { View } from 'react-native';
 
 import AppTabs from '@/navigation/AppTabs';
+import AdminTabs from '@/navigation/AdminTabs';
 import { AppProviders } from '@/shared/providers';
 import { colors } from '@/shared/theme';
 
@@ -22,8 +23,10 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(guest)" />
           <Stack.Screen name="(owner)" />
+          <Stack.Screen name="admin" />
         </Stack>
         {mainPaths.includes(pathname) && <AppTabs />}
+        {['/admin/courts', '/admin/approvals'].includes(pathname) && <AdminTabs />}
       </View>
     </AppProviders>
   );
