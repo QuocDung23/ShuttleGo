@@ -1,18 +1,39 @@
 import { randomInt } from 'node:crypto';
 import {
   Between,
+  IsNull,
   LessThanOrEqual,
+  Not,
   MoreThanOrEqual,
   type EntityManager,
   type FindOptionsWhere,
 } from 'typeorm';
 import type { AuthUser } from '@/common/auth.js';
-import { BookingStatus, PaymentStatus, UserRole } from '@/common/enums.js';
+import {
+  BookingSource,
+  BookingStatus,
+  PaymentMethod,
+  PaymentStatus,
+  UserRole,
+  VenueStatus,
+} from '@/common/enums.js';
 import { badRequest, conflict, forbidden, notFound } from '@/common/http-error.js';
 import { assertTimeRange, definedOnly, paginate, skipTake } from '@/common/validation.js';
 import { AppDataSource } from '@/database/data-source.js';
 import { Booking } from '@/modules/bookings/booking.entity.js';
+import { BookingHold } from '@/modules/bookings/booking-hold.entity.js';
+import { expirePendingCheckoutBookings } from '@/modules/bookings/booking-expiration.js';
+import {
+  applyActiveOccupancyFilter,
+  assertWithinWindow,
+  BOOKING_HOLD_MS,
+  calculateBookingTotal,
+  dayOfWeekForDate,
+  resolveOpeningWindow,
+} from '@/modules/bookings/booking-rules.js';
 import { Court } from '@/modules/courts/court.entity.js';
+import { Venue } from '@/modules/venues/venue.entity.js';
+import { realtime, scheduleRoom, userRoom } from '@/realtime/realtime.js';
 import type {
   CreateBookingInput,
   QueryBookingsInput,
@@ -24,6 +45,7 @@ const repo = () => AppDataSource.getRepository(Booking);
 const DETAIL_RELATIONS = { court: { venue: true }, player: true, creator: true } as const;
 
 export async function findAll(query: QueryBookingsInput, user: AuthUser) {
+  await expirePendingCheckoutBookings();
   const { page, limit, venueId, date, from, to, ...filters } = query;
   const bookingDate =
     date ??
@@ -47,6 +69,12 @@ export async function findAll(query: QueryBookingsInput, user: AuthUser) {
           { ...base, playerId: user.id },
           { ...base, createdBy: user.id },
         ]
+      : user.role === UserRole.OWNER
+        ? [
+            { ...base, source: BookingSource.OWNER },
+            { ...base, source: BookingSource.APP, paymentStatus: Not(PaymentStatus.UNPAID) },
+            { ...base, source: BookingSource.APP, playerId: IsNull() },
+          ]
       : base;
 
   const result = await repo().findAndCount({
@@ -59,6 +87,7 @@ export async function findAll(query: QueryBookingsInput, user: AuthUser) {
 }
 
 export async function findOne(id: number, user?: AuthUser) {
+  await expirePendingCheckoutBookings();
   const booking = await repo().findOne({ where: { id }, relations: DETAIL_RELATIONS });
   if (!booking) throw notFound(`Booking #${id} not found`);
   if (user) assertBookingAccess(user, booking);
@@ -68,27 +97,105 @@ export async function findOne(id: number, user?: AuthUser) {
 export async function create(input: CreateBookingInput, user: AuthUser) {
   assertTimeRange(input.startTime, input.endTime, 'booking time');
 
-  // The authenticated user is always the creator; players can only book for themselves.
-  const createdBy = user.id;
-  const playerId = user.role === UserRole.PLAYER ? user.id : (input.playerId ?? null);
+  const isPlayerBooking = user.role === UserRole.PLAYER;
 
   const id = await AppDataSource.transaction(async (manager) => {
-    await lockActiveCourt(manager, input.courtId);
-    await assertSlotFree(manager, input);
+    const court = await lockActiveCourt(manager, input.courtId);
+    const venue = await manager.findOne(Venue, {
+      where: { id: court.venueId },
+      relations: { operatingHours: true, priceRules: true },
+    });
+    if (!venue) throw badRequest(`Court #${court.id} has no venue`);
+    if (venue.status !== VenueStatus.APPROVED) {
+      throw badRequest('Sân chưa được duyệt, chưa nhận đặt sân.');
+    }
+
+    if (isPlayerBooking) assertPlayerCanBook(venue, input);
+    await assertSlotFree(manager, input, undefined, isPlayerBooking ? user.id : undefined);
 
     const booking = manager.create(Booking, {
       ...input,
-      createdBy,
-      playerId,
+      ...(isPlayerBooking
+        ? {
+            playerId: user.id,
+            createdBy: user.id,
+            source: BookingSource.APP,
+            status: BookingStatus.PENDING,
+            paymentMethod: PaymentMethod.BANK_TRANSFER,
+            paymentStatus: PaymentStatus.UNPAID,
+            holdExpiresAt: new Date(Date.now() + BOOKING_HOLD_MS),
+            proofImageUrl: null,
+          }
+        : {
+            createdBy: user.id,
+            playerId: user.role === UserRole.PLAYER ? user.id : (input.playerId ?? null),
+          }),
       code: generateCode(),
     });
     applyStatusTimestamps(booking);
-    return (await manager.save(booking)).id;
+    const saved = await manager.save(booking);
+    if (isPlayerBooking) await manager.delete(BookingHold, { playerId: user.id });
+    return saved.id;
   });
-  return findOne(id);
+  const created = await findOne(id, user);
+  const venueId = created.court?.venueId;
+  if (isPlayerBooking && venueId) {
+    const data = {
+      bookingId: created.id,
+      venueId,
+      courtId: created.courtId,
+      bookingDate: created.bookingDate,
+      startTime: created.startTime,
+      endTime: created.endTime,
+    };
+    realtime.targets(
+      [userRoom(user.id), scheduleRoom(venueId, created.bookingDate)],
+      'booking.checkout_created',
+      data,
+    );
+    realtime.schedule(venueId, created.bookingDate, 'schedule.changed', {
+      venueId,
+      courtId: created.courtId,
+      bookingDate: created.bookingDate,
+      startTime: created.startTime,
+      endTime: created.endTime,
+      reason: 'checkout_created',
+    });
+  }
+  return created;
+}
+
+/** Player-created bookings must use the venue's real hours, price and bank info. */
+function assertPlayerCanBook(venue: Venue, input: CreateBookingInput) {
+  // Compare calendar dates in UTC+7 so a late evening in Vietnam is not "tomorrow".
+  const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (input.bookingDate < today) {
+    throw badRequest('Không thể đặt sân vào ngày đã qua.');
+  }
+  if (!venue.bankAccountNo && !venue.bankQrImageUrl) {
+    throw badRequest('Sân chưa cấu hình thông tin thanh toán. Vui lòng liên hệ sân.');
+  }
+
+  const hours = venue.operatingHours?.find(
+    (row) => row.dayOfWeek === dayOfWeekForDate(input.bookingDate),
+  );
+  const window = resolveOpeningWindow(hours, venue.priceRules ?? []);
+  assertWithinWindow(window, input.startTime, input.endTime);
+
+  const expected = calculateBookingTotal(
+    venue.priceRules ?? [],
+    venue.weekendSurcharge,
+    input.bookingDate,
+    input.startTime,
+    input.endTime,
+  );
+  if (input.totalAmount !== expected) {
+    throw badRequest(`Tổng tiền không khớp. Số tiền đúng là ${expected}đ.`);
+  }
 }
 
 export async function update(id: number, input: UpdateBookingInput, user: AuthUser) {
+  let statusChanged = false;
   await AppDataSource.transaction(async (manager) => {
     const booking = await manager.findOne(Booking, { where: { id }, relations: DETAIL_RELATIONS });
     if (!booking) throw notFound(`Booking #${id} not found`);
@@ -114,8 +221,137 @@ export async function update(id: number, input: UpdateBookingInput, user: AuthUs
 
     applyStatusTimestamps(booking, before);
     await manager.save(booking);
+    statusChanged = booking.status !== before.status;
   });
-  return findOne(id, user);
+  const updated = await findOne(id, user);
+  const venueId = updated.court?.venue?.id ?? updated.court?.venueId;
+  if (
+    statusChanged &&
+    venueId &&
+    (updated.status === BookingStatus.CONFIRMED || updated.status === BookingStatus.CANCELLED)
+  ) {
+    const data = {
+      bookingId: updated.id,
+      venueId,
+      courtId: updated.courtId,
+      bookingDate: updated.bookingDate,
+      startTime: updated.startTime,
+      endTime: updated.endTime,
+      status: updated.status,
+    };
+    const userRooms = [updated.court?.venue?.ownerId, updated.playerId]
+      .filter((userId): userId is number => typeof userId === 'number')
+      .map(userRoom);
+    realtime.targets(
+      [...userRooms, scheduleRoom(venueId, updated.bookingDate)],
+      'booking.status_changed',
+      data,
+    );
+  }
+  return updated;
+}
+
+/**
+ * Player payment claim. This is the only PATCH action a player may take:
+ * they report a transfer, the server clears the hold and keeps status pending
+ * for the owner to verify. All other booking fields stay server-owned.
+ */
+export async function claimPayment(id: number, user: AuthUser) {
+  await expirePendingCheckoutBookings();
+  await AppDataSource.transaction(async (manager) => {
+    // Lock the row itself (no joins) so the lock works on Postgres even when
+    // relations are nullable; the ownership check only needs the id columns.
+    const booking = await manager.findOne(Booking, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!booking) throw notFound(`Booking #${id} not found`);
+
+    if (
+      user.role !== UserRole.PLAYER ||
+      (booking.playerId !== user.id && booking.createdBy !== user.id)
+    ) {
+      throw forbidden('Bạn không có quyền báo chuyển khoản cho đặt sân này.');
+    }
+    if (
+      booking.paymentStatus === PaymentStatus.UNPAID &&
+      booking.holdExpiresAt &&
+      booking.holdExpiresAt.getTime() <= Date.now()
+    ) {
+      throw conflict('Thời gian giữ chỗ đã hết. Vui lòng chọn giờ lại.');
+    }
+    if (booking.status !== BookingStatus.PENDING) {
+      throw conflict('Đặt sân không còn ở trạng thái chờ xử lý.');
+    }
+    if (booking.paymentStatus !== PaymentStatus.UNPAID) {
+      throw conflict('Đặt sân này đã được báo chuyển khoản.');
+    }
+    if (!booking.holdExpiresAt) throw conflict('Đặt sân này không còn thời gian giữ chỗ.');
+
+    const before = { ...booking };
+    booking.paymentStatus = PaymentStatus.PENDING_VERIFICATION;
+    booking.holdExpiresAt = null;
+    applyStatusTimestamps(booking, before);
+    await manager.save(booking);
+  });
+  const updated = await findOne(id, user);
+  const venue = updated.court?.venue;
+  if (venue) {
+    realtime.users([venue.ownerId, user.id], 'booking.payment_reported', {
+      bookingId: updated.id,
+      venueId: venue.id,
+      bookingDate: updated.bookingDate,
+      status: 'pending',
+      paymentStatus: 'pending_verification',
+    });
+  }
+  return updated;
+}
+
+/** Player cancels an unpaid checkout hold before reporting the transfer. */
+export async function cancelPendingCheckout(id: number, user: AuthUser) {
+  if (user.role !== UserRole.PLAYER) throw forbidden('Chỉ người đặt mới có thể hủy giữ chỗ.');
+  await expirePendingCheckoutBookings();
+
+  await AppDataSource.transaction(async (manager) => {
+    const booking = await manager.findOne(Booking, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!booking) throw notFound(`Booking #${id} not found`);
+    if (booking.playerId !== user.id && booking.createdBy !== user.id) {
+      throw forbidden('Bạn không có quyền hủy giữ chỗ này.');
+    }
+    if (booking.status !== BookingStatus.PENDING || booking.paymentStatus !== PaymentStatus.UNPAID) {
+      throw conflict('Chỉ có thể hủy giữ chỗ chưa báo chuyển khoản.');
+    }
+    if (!booking.holdExpiresAt || booking.holdExpiresAt.getTime() <= Date.now()) {
+      throw conflict('Thời gian giữ chỗ đã hết. Vui lòng chọn giờ lại.');
+    }
+
+    await lockCourt(manager, booking.courtId);
+    const before = { ...booking };
+    booking.status = BookingStatus.CANCELLED;
+    booking.cancelledBy = user.id;
+    booking.cancelReason = 'Người chơi hủy giữ chỗ';
+    booking.holdExpiresAt = null;
+    applyStatusTimestamps(booking, before);
+    await manager.save(booking);
+  });
+
+  const cancelled = await findOne(id, user);
+  const venueId = cancelled.court?.venueId;
+  if (venueId) {
+    realtime.schedule(venueId, cancelled.bookingDate, 'schedule.changed', {
+      venueId,
+      courtId: cancelled.courtId,
+      bookingDate: cancelled.bookingDate,
+      startTime: cancelled.startTime,
+      endTime: cancelled.endTime,
+      reason: 'booking_cancelled',
+    });
+  }
+  return cancelled;
 }
 
 export async function remove(id: number, user: AuthUser) {
@@ -135,7 +371,15 @@ function assertBookingAccess(user: AuthUser, booking: Booking) {
   ) {
     return;
   }
-  if (user.role === UserRole.OWNER && booking.court?.venue?.ownerId === user.id) return;
+  if (user.role === UserRole.OWNER && booking.court?.venue?.ownerId === user.id) {
+    const isUnpaidPlayerCheckout =
+      booking.source === BookingSource.APP &&
+      booking.playerId !== null &&
+      booking.paymentStatus === PaymentStatus.UNPAID &&
+      booking.holdExpiresAt !== null;
+    if (isUnpaidPlayerCheckout) throw notFound(`Booking #${booking.id} not found`);
+    return;
+  }
   throw forbidden('You cannot access this booking');
 }
 
@@ -160,20 +404,18 @@ async function assertSlotFree(
   manager: EntityManager,
   slot: Pick<Booking, 'courtId' | 'bookingDate' | 'startTime' | 'endTime'>,
   excludeId?: number,
+  excludeHoldPlayerId?: number,
 ) {
-  const qb = manager
-    .createQueryBuilder(Booking, 'b')
-    .where('b.courtId = :courtId', { courtId: slot.courtId })
-    .andWhere('b.bookingDate = :date', { date: slot.bookingDate })
-    .andWhere('b.status <> :cancelled', { cancelled: BookingStatus.CANCELLED })
-    .andWhere(
-      'NOT (b.status = :pending AND b.holdExpiresAt IS NOT NULL AND b.holdExpiresAt < now())',
-      { pending: BookingStatus.PENDING },
-    )
-    .andWhere('b.startTime < :end AND b.endTime > :start', {
-      start: slot.startTime,
-      end: slot.endTime,
-    });
+  const qb = applyActiveOccupancyFilter(
+    manager
+      .createQueryBuilder(Booking, 'b')
+      .where('b.courtId = :courtId', { courtId: slot.courtId })
+      .andWhere('b.bookingDate = :date', { date: slot.bookingDate })
+      .andWhere('b.startTime < :end AND b.endTime > :start', {
+        start: slot.startTime,
+        end: slot.endTime,
+      }),
+  );
   if (excludeId) qb.andWhere('b.id <> :excludeId', { excludeId });
 
   const clash = await qb.getOne();
@@ -181,6 +423,19 @@ async function assertSlotFree(
     throw conflict(
       `Court is already booked ${clash.startTime}–${clash.endTime} (booking ${clash.code})`,
     );
+  }
+
+  const holds = manager.createQueryBuilder(BookingHold, 'h')
+    .where('h.courtId = :courtId', { courtId: slot.courtId })
+    .andWhere('h.bookingDate = :date', { date: slot.bookingDate })
+    .andWhere('h.startTime < :end AND h.endTime > :start', {
+      start: slot.startTime,
+      end: slot.endTime,
+    })
+    .andWhere('h.expiresAt > now()');
+  if (excludeHoldPlayerId) holds.andWhere('h.playerId <> :playerId', { playerId: excludeHoldPlayerId });
+  if (await holds.getOne()) {
+    throw conflict('Khung giờ này đang được người khác chọn. Vui lòng chọn giờ khác.');
   }
 }
 

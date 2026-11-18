@@ -3,6 +3,9 @@ import { DefaultTheme, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, type PropsWithChildren } from "react";
 
+import { AuthProvider } from "@/features/auth/AuthContext";
+import { PendingBookingCountProvider } from "@/features/home/PendingBookingCountContext";
+import { RealtimeProvider } from "@/features/realtime/RealtimeProvider";
 import { colors, fontAssets } from "@/shared/theme";
 
 void SplashScreen.preventAutoHideAsync();
@@ -29,5 +32,13 @@ export function AppProviders({ children }: PropsWithChildren) {
 
   if (!fontsLoaded && !fontError) return null;
 
-  return <ThemeProvider value={navigationTheme}>{children}</ThemeProvider>;
+  return (
+    <ThemeProvider value={navigationTheme}>
+      <AuthProvider>
+        <RealtimeProvider>
+          <PendingBookingCountProvider>{children}</PendingBookingCountProvider>
+        </RealtimeProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
 }

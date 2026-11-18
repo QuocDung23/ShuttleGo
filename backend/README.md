@@ -25,12 +25,22 @@ thêm tiền tố `Bearer` vào header cho các endpoint được bảo vệ.
 | --- | --- |
 | `npm run dev` | Chạy dev, tự reload (tsx watch) |
 | `npm run build` / `npm start` | Build ra `dist/` và chạy bản build |
+| `npm test` | Chạy test contract realtime |
 | `npm run typecheck` | Kiểm tra type |
 | `npm run migration:generate -- src/database/migrations/<Ten>` | Sinh migration từ thay đổi entity |
 | `npm run migration:run` / `migration:revert` | Chạy / rollback migration |
 
 > `synchronize` đang **tắt**. Sửa entity xong thì generate migration, đừng sửa DB bằng tay.
 > Đặt `DB_MIGRATIONS_RUN=false` trong `.env` nếu không muốn app tự chạy migration lúc khởi động.
+
+## Realtime
+
+Socket.IO dùng chung port HTTP với API, namespace `/realtime`. Client gửi JWT trong
+`auth.token`; mutation vẫn đi qua REST và event chỉ yêu cầu client refetch snapshot.
+Local không cần cấu hình thêm. Trên staging/production, proxy phải chuyển tiếp WebSocket
+Upgrade cho `/socket.io/`; khi chạy nhiều backend instance cần sticky session và shared
+adapter trước khi scale. Nếu WebSocket bị chặn, Socket.IO tự fallback transport và REST
+vẫn hoạt động độc lập.
 
 ## Cấu trúc
 
@@ -98,7 +108,7 @@ Quyền:
 | --- | --- | --- |
 | users | `GET/POST /users`, `GET/PATCH/DELETE /users/:id` | `role, status, search` |
 | amenities | `GET/POST /amenities`, `GET/PATCH/DELETE /amenities/:id` | |
-| venues | `GET/POST /venues`, `GET/PATCH/DELETE /venues/:id` | `ownerId, status, city, district, search, sort=newest\|name` |
+| venues | `GET/POST /venues`, `GET/PATCH/DELETE /venues/:id` — `POST` bắt buộc `courtCount` (1–100) | `ownerId, status, city, district, search, sort=newest\|name` |
 | | `PATCH /venues/:id/review` — admin duyệt `{ status, reviewedBy, reviewNote? }` | |
 | venue_amenities | `GET /venues/:id/amenities`, `PUT /venues/:id/amenities` `{ amenityIds: [] }` | |
 | operating_hours | `GET /venues/:id/operating-hours`<br>`PUT /venues/:id/operating-hours` `{ hours: [...] }` (thay cả tuần)<br>`PUT/DELETE /venues/:id/operating-hours/:dayOfWeek` | |
@@ -118,6 +128,9 @@ Quyền:
 - **Price rules**: các khung giờ trong cùng một venue không được chồng nhau.
 - **Reports**: đổi `status` → `resolved`/`rejected` thì tự set `resolvedAt`.
 - **Venues**: `GET /venues/:id` trả kèm owner, amenities, courts, operatingHours, priceRules.
+  `POST /venues` tạo Venue, 2 price rules và `courtCount` Court (`Sân 1..N`, `isActive: true`)
+  trong cùng transaction; `courts` được trả theo `id ASC`. `courtCount` không phải cột DB và
+  không được nhận ở `PATCH /venues/:id`.
 
 ### Giá trị enum
 

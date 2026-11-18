@@ -19,7 +19,10 @@ export const notFoundHandler: RequestHandler = (req, res) => {
 
 export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof HttpError) {
-    res.status(err.status).json({ message: err.message, details: err.details });
+    const body: Record<string, unknown> = { message: err.message };
+    if (err.code !== undefined) body.code = err.code;
+    if (err.details !== undefined) body.details = err.details;
+    res.status(err.status).json(body);
     return;
   }
 

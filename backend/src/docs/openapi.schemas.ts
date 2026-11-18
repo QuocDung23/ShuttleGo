@@ -15,6 +15,10 @@ const nullableId = { type: 'integer', minimum: 1, nullable: true };
 const dateTime = { type: 'string', format: 'date-time', nullable: true };
 const time = { type: 'string', pattern: '^([01]\\d|2[0-3]):[0-5]\\d(:[0-5]\\d)?$' };
 const phone = { type: 'string', pattern: '^(0\\d{9}|\\+84\\d{9})$', example: '0901234567' };
+const loginPhone = {
+  oneOf: [phone, { type: 'string', const: 'admin' }],
+  description: 'Use a Vietnamese mobile number or the seeded admin login alias "admin".',
+};
 const loginPassword = {
   type: 'string',
   minLength: 1,
@@ -39,8 +43,6 @@ const venueWritable = {
   address: { type: 'string', minLength: 1, maxLength: 255 },
   district: { type: 'string', minLength: 1, maxLength: 100 },
   city: { type: 'string', minLength: 1, maxLength: 100 },
-  latitude: { type: 'number', minimum: -90, maximum: 90, nullable: true },
-  longitude: { type: 'number', minimum: -180, maximum: 180, nullable: true },
   phone: { type: 'string', maxLength: 20, nullable: true },
   description: nullableString,
   coverImageUrl: nullableString,
@@ -48,6 +50,7 @@ const venueWritable = {
   bankName: { type: 'string', maxLength: 100, nullable: true },
   bankAccountNo: { type: 'string', maxLength: 50, nullable: true },
   bankAccountHolder: { type: 'string', maxLength: 100, nullable: true },
+  bankQrImageUrl: nullableString,
   amenityIds: {
     type: 'array',
     uniqueItems: true,
@@ -55,22 +58,33 @@ const venueWritable = {
   },
 };
 
+const createVenuePriceRuleInput = {
+  type: 'object',
+  required: ['label', 'startTime', 'endTime', 'pricePerHour'],
+  properties: {
+    label: { type: 'string', enum: ['Giờ thường', 'Giờ cao điểm'] },
+    startTime: time,
+    endTime: time,
+    pricePerHour: { type: 'integer', minimum: 0 },
+  },
+};
+
 const bookingWritable = {
   courtId: { type: 'integer', minimum: 1 },
-  playerId: nullableId,
+  playerId: { ...nullableId, description: 'Owner/admin only. Players are always the authenticated user.' },
   createdBy: { type: 'integer', minimum: 1, description: 'Ignored; taken from the access token.' },
-  source: { type: 'string', enum: Object.values(BookingSource) },
+  source: { type: 'string', enum: Object.values(BookingSource), description: 'Owner/admin only; players are always "app".' },
   contactName: { type: 'string', minLength: 1, maxLength: 100 },
   contactPhone: phone,
   bookingDate: { type: 'string', format: 'date', example: '2026-11-20' },
   startTime: { ...time, example: '18:00' },
   endTime: { ...time, example: '20:00' },
-  totalAmount: { type: 'integer', minimum: 0, description: 'VND' },
-  status: { type: 'string', enum: Object.values(BookingStatus) },
-  paymentMethod: { type: 'string', enum: Object.values(PaymentMethod) },
-  paymentStatus: { type: 'string', enum: Object.values(PaymentStatus) },
-  proofImageUrl: nullableString,
-  holdExpiresAt: dateTime,
+  totalAmount: { type: 'integer', minimum: 0, description: 'VND. Must match the server-calculated total.' },
+  status: { type: 'string', enum: Object.values(BookingStatus), description: 'Owner/admin only; players always start as "pending".' },
+  paymentMethod: { type: 'string', enum: Object.values(PaymentMethod), description: 'Players use "bank_transfer" in v1.' },
+  paymentStatus: { type: 'string', enum: Object.values(PaymentStatus), description: 'Players must use "pending_verification" when reporting a transfer.' },
+  proofImageUrl: { ...nullableString, description: 'Not used by players in v1.' },
+  holdExpiresAt: { ...dateTime, description: 'Server-owned five-minute checkout hold. The player booking stays selected until a transfer is reported.' },
 };
 
 export const openApiSchemas = {
@@ -121,7 +135,7 @@ export const openApiSchemas = {
   LoginInput: {
     type: 'object',
     required: ['phone', 'password'],
-    properties: { phone, password: loginPassword },
+    properties: { phone: loginPhone, password: loginPassword },
   },
   AuthResponse: {
     type: 'object',
@@ -159,6 +173,9 @@ export const openApiSchemas = {
       ...Object.fromEntries(
         Object.entries(venueWritable).filter(([key]) => key !== 'amenityIds'),
       ),
+      // latitude/longitude kept in DB for legacy rows but omitted from create/update contract.
+      latitude: { type: 'number', minimum: -90, maximum: 90, nullable: true },
+      longitude: { type: 'number', minimum: -180, maximum: 180, nullable: true },
       status: { type: 'string', enum: Object.values(VenueStatus) },
       reviewedBy: nullableId,
       reviewedAt: dateTime,
@@ -174,8 +191,23 @@ export const openApiSchemas = {
   },
   CreateVenueInput: {
     type: 'object',
-    required: ['name', 'address', 'district', 'city'],
-    properties: venueWritable,
+    required: ['name', 'address', 'district', 'city', 'courtCount', 'priceRules'],
+    properties: {
+      ...venueWritable,
+      courtCount: {
+        type: 'integer',
+        minimum: 1,
+        maximum: 100,
+        description: 'Number of courts to create with the venue; not stored on the venue row.',
+      },
+      priceRules: {
+        type: 'array',
+        minItems: 2,
+        maxItems: 2,
+        items: createVenuePriceRuleInput,
+        description: 'Exactly two adjacent pricing windows: Giờ thường then Giờ cao điểm.',
+      },
+    },
   },
   UpdateVenueInput: {
     type: 'object',
@@ -188,6 +220,25 @@ export const openApiSchemas = {
       status: { type: 'string', enum: Object.values(VenueStatus) },
       reviewedBy: { type: 'integer', minimum: 1 },
       reviewNote: { type: 'string', maxLength: 500, nullable: true },
+    },
+  },
+  OwnerVenueStatusItem: {
+    type: 'object',
+    required: ['id', 'name', 'status', 'updatedAt'],
+    properties: {
+      id: { type: 'integer' },
+      name: { type: 'string' },
+      status: { type: 'string', enum: Object.values(VenueStatus) },
+      reviewNote: { type: 'string', nullable: true },
+      reviewedAt: dateTime,
+      updatedAt: { type: 'string', format: 'date-time' },
+    },
+  },
+  OwnerVenuesResponse: {
+    type: 'object',
+    required: ['data'],
+    properties: {
+      data: { type: 'array', items: { $ref: '#/components/schemas/OwnerVenueStatusItem' } },
     },
   },
   AmenityIdsInput: {
@@ -341,10 +392,96 @@ export const openApiSchemas = {
   },
   UpdateBookingInput: {
     type: 'object',
+    description: 'Owner/admin use. Players may only send PaymentClaimInput.',
     properties: {
       ...Object.fromEntries(Object.entries(bookingWritable).filter(([key]) => key !== 'createdBy')),
       cancelReason: { type: 'string', maxLength: 255, nullable: true },
       cancelledBy: nullableId,
+    },
+  },
+  PaymentClaimInput: {
+    type: 'object',
+    required: ['paymentStatus'],
+    additionalProperties: false,
+    properties: {
+      paymentStatus: { type: 'string', enum: [PaymentStatus.PENDING_VERIFICATION] },
+    },
+  },
+  VenueAvailability: {
+    type: 'object',
+    required: ['venueId', 'date', 'isOpen', 'courts'],
+    properties: {
+      venueId: { type: 'integer', minimum: 1 },
+      date: { type: 'string', format: 'date' },
+      isOpen: { type: 'boolean' },
+      openTime: { ...time, nullable: true },
+      closeTime: { ...time, nullable: true },
+      courts: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['id', 'name', 'occupiedRanges', 'heldRanges', 'checkoutRanges'],
+          properties: {
+            id: { type: 'integer', minimum: 1 },
+            name: { type: 'string' },
+            occupiedRanges: {
+              type: 'array',
+              description: 'Player bookings after transfer is reported plus owner-entered bookings; no customer details or booking codes.',
+              items: {
+                type: 'object',
+                required: ['startTime', 'endTime'],
+                properties: { startTime: time, endTime: time },
+              },
+            },
+            heldRanges: {
+              type: 'array',
+              description: 'Temporary player selections and unpaid checkout holds; no player data.',
+              items: {
+                type: 'object',
+                required: ['startTime', 'endTime'],
+                properties: { startTime: time, endTime: time },
+              },
+            },
+            checkoutRanges: {
+              type: 'array',
+              description: 'Unpaid player booking holds. These remain in the selected state until the player reports a transfer.',
+              items: {
+                type: 'object',
+                required: ['startTime', 'endTime'],
+                properties: { startTime: time, endTime: time },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  BookingHold: {
+    type: 'object',
+    required: ['id', 'playerId', 'courtId', 'bookingDate', 'startTime', 'endTime', 'expiresAt'],
+    properties: {
+      id: { type: 'integer' },
+      playerId: { type: 'integer' },
+      courtId: { type: 'integer' },
+      bookingDate: { type: 'string', format: 'date' },
+      startTime: time,
+      endTime: time,
+      expiresAt: { type: 'string', format: 'date-time' },
+    },
+  },
+  BookingHoldNullable: {
+    type: 'object',
+    nullable: true,
+    allOf: [{ $ref: '#/components/schemas/BookingHold' }],
+  },
+  SelectBookingHoldInput: {
+    type: 'object',
+    required: ['courtId', 'bookingDate', 'startTime', 'endTime'],
+    properties: {
+      courtId: { type: 'integer', minimum: 1 },
+      bookingDate: { type: 'string', format: 'date' },
+      startTime: time,
+      endTime: time,
     },
   },
   Notification: {

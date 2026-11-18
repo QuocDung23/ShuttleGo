@@ -6,16 +6,28 @@ import * as controller from '@/modules/venues/venues.controller.js';
 
 export const venuesRouter = Router();
 
+const ownerOnly = [authenticate, requireRole(UserRole.OWNER)];
 const ownerOrAdmin = [authenticate, requireRole(UserRole.OWNER, UserRole.ADMIN)];
 const adminOnly = [authenticate, requireRole(UserRole.ADMIN)];
 
 venuesRouter.get('/', controller.index);
+
+/** Owner's own venue records for onboarding/approval gate. Must be before /:id. */
+venuesRouter.get('/mine', ...ownerOnly, controller.mine);
+
+/** Public availability for one date. No auth and no customer data. */
+venuesRouter.get('/:venueId/availability', controller.availability);
+
 venuesRouter.get('/:id', controller.show);
 venuesRouter.post('/', ...ownerOrAdmin, controller.create);
 venuesRouter.patch('/:id', ...ownerOrAdmin, controller.update);
 
 /** Admin approves / rejects / suspends a venue */
 venuesRouter.patch('/:id/review', ...adminOnly, controller.review);
+
+/** Owner resubmits a rejected venue for review. */
+venuesRouter.post('/:id/resubmit', ...ownerOnly, controller.resubmit);
+
 venuesRouter.delete('/:id', ...ownerOrAdmin, controller.remove);
 
 // venue_amenities

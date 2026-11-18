@@ -1,6 +1,6 @@
-# Welcome to your Expo app 👋
+# ShuttleGo Frontend (Expo)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Ứng dụng Expo/React Native (Expo Router) cho ShuttleGo.
 
 ## Get started
 
@@ -10,7 +10,29 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Cấu hình API backend
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Chỉnh `EXPO_PUBLIC_API_URL` trong `.env` theo nơi chạy app (backend cùng máy dev):
+
+   - Web / iOS Simulator: `http://localhost:3000/api`
+   - Android Emulator: `http://10.0.2.2:3000/api`
+   - Thiết bị thật: `http://<IP_LAN_MÁY_DEV>:3000/api`
+
+   Ghi chú:
+
+   - Port phải khớp `PORT` trong `backend/.env`.
+   - Android Emulator không dùng `localhost` để trỏ về máy dev.
+   - Khi chạy Expo web, thêm origin web vào `CORS_ORIGIN` của backend (ví dụ `http://localhost:8081`).
+   - Không đặt secret vào biến `EXPO_PUBLIC_*` (biến này được nhúng vào bundle).
+   - Sau khi đổi `.env`, khởi động lại Expo.
+   - Realtime dùng cùng origin với `EXPO_PUBLIC_API_URL`; không cần thêm URL hay port.
+     App tự reconnect và refetch REST khi kết nối lại/return foreground.
+
+3. Start the app
 
    ```bash
    npx expo start

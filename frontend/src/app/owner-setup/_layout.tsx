@@ -1,5 +1,11 @@
 import { Stack } from 'expo-router';
 
+import { OwnerSetupProvider } from '@/features/venue/ownerSetupContext';
+
 export default function OwnerSetupLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <OwnerSetupProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </OwnerSetupProvider>
+  );
 }

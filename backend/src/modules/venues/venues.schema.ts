@@ -1,10 +1,18 @@
 import { z } from 'zod';
 import { VenueStatus } from '@/common/enums.js';
-import { idParam, pagination } from '@/common/validation.js';
+import { dateString, idParam, pagination, timeString } from '@/common/validation.js';
 
 const amenityIds = z
   .array(idParam)
   .refine((ids) => new Set(ids).size === ids.length, 'amenityIds must be unique');
+
+const venuePriceRuleInput = z.object({
+  label: z.enum(['Giờ thường', 'Giờ cao điểm']),
+  startTime: timeString,
+  endTime: timeString,
+  /** VND per hour */
+  pricePerHour: z.number().int().min(0),
+});
 
 export const createVenueSchema = z.object({
   /** Required for admins; owners always create venues for themselves. */
@@ -13,8 +21,8 @@ export const createVenueSchema = z.object({
   address: z.string().trim().min(1).max(255),
   district: z.string().trim().min(1).max(100),
   city: z.string().trim().min(1).max(100),
-  latitude: z.number().min(-90).max(90).nullable().optional(),
-  longitude: z.number().min(-180).max(180).nullable().optional(),
+  /** Number of courts to create with this venue. Not stored on the venue row. */
+  courtCount: z.number().int().min(1).max(100),
   phone: z.string().max(20).nullable().optional(),
   description: z.string().nullable().optional(),
   coverImageUrl: z.string().nullable().optional(),
@@ -23,12 +31,17 @@ export const createVenueSchema = z.object({
   bankName: z.string().max(100).nullable().optional(),
   bankAccountNo: z.string().max(50).nullable().optional(),
   bankAccountHolder: z.string().max(100).nullable().optional(),
+  bankQrImageUrl: z.string().nullable().optional(),
   /** amenity ids to attach */
   amenityIds: amenityIds.optional(),
+  /** Exactly two adjacent pricing windows: regular then peak. */
+  priceRules: z.array(venuePriceRuleInput).length(2),
 });
 
-/** Owner can't be changed; status goes through PATCH /venues/:id/review */
-export const updateVenueSchema = createVenueSchema.omit({ ownerId: true }).partial();
+/** Owner can't be changed; status goes through PATCH /venues/:id/review. */
+export const updateVenueSchema = createVenueSchema
+  .omit({ ownerId: true, priceRules: true, courtCount: true })
+  .partial();
 
 export const reviewVenueSchema = z.object({
   status: z.enum(VenueStatus),
@@ -38,6 +51,8 @@ export const reviewVenueSchema = z.object({
 });
 
 export const setAmenitiesSchema = z.object({ amenityIds });
+
+export const availabilityQuerySchema = z.object({ date: dateString });
 
 export const queryVenuesSchema = z.object({
   ...pagination,
