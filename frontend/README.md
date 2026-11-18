@@ -33,7 +33,7 @@ This project uses [Expo Router](https://docs.expo.dev/router/introduction). Keep
 - `src/shared`: providers, reusable components, hooks, theme, and constants
 - `assets`: app images and fonts
 
-The current home screen is in `src/features/home/screens/HomeScreen.tsx`; the Explore screen is in `src/features/explore/screens/ExploreScreen.tsx`.
+Route/page nằm trong `src/app/`, component giao diện nằm trong `src/components/`, và hook ViewModel của từng tính năng nằm trong `src/features/`.
 
 ## Get a fresh project
 
