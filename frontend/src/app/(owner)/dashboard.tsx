@@ -6,15 +6,21 @@ import { OverviewStats } from '@/components/home/OverviewStats';
 import { PendingBookingCard } from '@/components/home/PendingBookingCard';
 import { OwnerPage, OwnerText } from '@/components/ui/owner-ui';
 import { useHomeViewModel } from '@/features/home/hooks/useHomeViewModel';
+import { useNotificationsFeed } from '@/features/notifications/hooks/useNotificationsFeed';
 
 export default function DashboardPage() {
   const router = useRouter();
+  const { unreadCount } = useNotificationsFeed();
   const { venueName, occupancyLabel, pendingBookings, resolveBooking, loading, error } =
     useHomeViewModel();
 
   return (
     <OwnerPage>
-      <HomeHeader venueName={venueName} onOpenNotifications={() => router.push('/(owner)/notifications')} />
+      <HomeHeader
+        venueName={venueName}
+        notificationCount={unreadCount}
+        onOpenNotifications={() => router.push('/(owner)/notifications')}
+      />
       {loading ? (
         <View className="items-center py-8"><ActivityIndicator /></View>
       ) : error ? (

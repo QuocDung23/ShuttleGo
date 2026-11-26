@@ -641,6 +641,7 @@ export default function BookingDetailsPage() {
               return (
                 <Pressable
                   key={day.key}
+                  testID={`booking-date-${day.key}`}
                   disabled={holdUpdating || submitting}
                   onPress={() => {
                     if (holdRequestRef.current) return;
@@ -711,6 +712,7 @@ export default function BookingDetailsPage() {
                 return (
                   <Pressable
                     key={court.id}
+                    testID={`booking-court-${court.id}`}
                     disabled={holdUpdating || submitting}
                     onPress={() => {
                       if (holdRequestRef.current) return;
@@ -795,6 +797,7 @@ export default function BookingDetailsPage() {
                 return (
                   <Pressable
                     key={slot.startTime}
+                    testID={`booking-slot-${selectedCourtId}-${slot.startTime.slice(0, 5)}`}
                     onPress={() => toggleSlot(index)}
                     disabled={!selectable || holdUpdating}
                     className={`h-[76px] w-[23%] items-center justify-center gap-1 rounded-xl border px-1 py-2 ${bgClass} ${borderClass}`}

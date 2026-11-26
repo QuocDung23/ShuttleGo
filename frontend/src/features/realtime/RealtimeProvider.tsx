@@ -6,6 +6,15 @@ import { getAuthToken } from '@/data/api/client';
 import { useAuth } from '@/features/auth/AuthContext';
 
 type EventData = {
+  'notification.created': {
+    id: number;
+    type: string;
+    title: string;
+    body: string;
+    bookingId: number | null;
+    isRead: boolean;
+    createdAt: string;
+  };
   'venue.application_submitted': { venueId: number; status: 'pending' };
   'venue.review_changed': { venueId: number; status: 'approved' | 'rejected' | 'suspended' };
   'owner.venue_approved': { venueId: number; status: 'approved' };

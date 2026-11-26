@@ -73,6 +73,7 @@ export default function LoginPage() {
       footer={
         <>
           <OwnerButton
+            testID="login-submit"
             title={submitting ? 'Đang đăng nhập...' : 'Đăng nhập'}
             onPress={() => void onLogin()}
             disabled={submitting}
@@ -99,6 +100,7 @@ export default function LoginPage() {
       />
       <View className="mt-8 gap-5">
         <AuthField
+          testID="login-phone"
           label="Số điện thoại"
           icon={{ ios: 'phone', android: 'phone', web: 'phone' }}
           value={phone}
@@ -110,6 +112,7 @@ export default function LoginPage() {
           editable={!submitting}
         />
         <AuthField
+          testID="login-password"
           label="Mật khẩu"
           icon={{ ios: 'lock', android: 'lock', web: 'lock' }}
           trailingIcon={{ ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }}

@@ -1,13 +1,16 @@
 import { SymbolView } from "expo-symbols";
 import { Pressable, View } from "react-native";
 
+import { UnreadNotificationBadge } from "@/components/notifications/UnreadNotificationBadge";
 import { OwnerText, ownerColors } from "@/components/ui/owner-ui";
 
 export function HomeHeader({
   venueName,
+  notificationCount,
   onOpenNotifications,
 }: {
   venueName: string;
+  notificationCount: number;
   onOpenNotifications: () => void;
 }) {
   return (
@@ -21,16 +24,16 @@ export function HomeHeader({
         </OwnerText>
       </View>
       <Pressable
-        accessibilityLabel="Thông báo"
+        accessibilityLabel={notificationCount ? `Thông báo, ${notificationCount} chưa đọc` : "Thông báo"}
         onPress={onOpenNotifications}
-        className="h-12 w-12 items-center justify-center rounded-full"
+        className="relative h-12 w-12 items-center justify-center rounded-full"
       >
         <SymbolView
           name={{ ios: "bell", android: "notifications", web: "notifications" }}
           size={22}
           tintColor={ownerColors.ink}
         />
-        <View className="absolute right-[9px] top-[9px] h-2 w-2 rounded-full bg-error" />
+        <UnreadNotificationBadge count={notificationCount} />
       </Pressable>
     </View>
   );

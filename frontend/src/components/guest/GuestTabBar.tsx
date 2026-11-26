@@ -49,6 +49,7 @@ export function GuestTabBar({ active }: { active: GuestTab }) {
           return (
             <Pressable
               key={tab.key}
+              testID={tab.key === "profile" ? "guest-profile-tab" : undefined}
               accessibilityRole="tab"
               accessibilityState={{ selected }}
               onPress={() => router.replace(tab.path)}

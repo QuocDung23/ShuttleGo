@@ -3,13 +3,22 @@ import type { Server as HttpServer } from 'node:http';
 import { Server, type Namespace, type Socket } from 'socket.io';
 import { z } from 'zod';
 import { JWT_SECRET } from '@/config/auth.js';
-import { UserRole, UserStatus, VenueStatus } from '@/common/enums.js';
+import { NotificationType, UserRole, UserStatus, VenueStatus } from '@/common/enums.js';
 import { verifyAuthToken } from '@/common/jwt.js';
 import { AppDataSource } from '@/database/data-source.js';
 import { User } from '@/modules/users/user.entity.js';
 import { Venue } from '@/modules/venues/venue.entity.js';
 
 export type RealtimeEventData = {
+  'notification.created': {
+    id: number;
+    type: NotificationType;
+    title: string;
+    body: string;
+    bookingId: number | null;
+    isRead: boolean;
+    createdAt: string;
+  };
   'venue.application_submitted': { venueId: number; status: 'pending' };
   'venue.review_changed': {
     venueId: number;

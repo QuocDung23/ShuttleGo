@@ -26,6 +26,7 @@ export function CourtScheduleGrid({
               {court.slots.map((slot) => (
                 <Pressable
                   key={slot.hour}
+                  testID={slot.bookingId === undefined ? undefined : `owner-booking-${slot.bookingId}`}
                   disabled={slot.bookingId === undefined}
                   onPress={() => slot.bookingId !== undefined && onOpenBooking(slot.bookingId)}
                   className={`h-14 w-[72px] items-center justify-center gap-[3px] rounded-[14px] ${

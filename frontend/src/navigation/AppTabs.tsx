@@ -31,6 +31,7 @@ export default function AppTabs() {
         return (
           <Pressable
             accessibilityRole="tab"
+            testID={tab.path === '/schedule' ? 'owner-schedule-tab' : undefined}
             accessibilityState={{ selected }}
             key={tab.path}
             onPress={() => router.replace(tab.path)}

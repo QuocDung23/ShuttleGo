@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 
 import { notificationRepository } from "@/data/repositories/notificationRepository";
 import { useAuth } from "@/features/auth/AuthContext";
+import { useRealtimeRefresh } from "@/features/realtime/RealtimeProvider";
 import type { AppNotification, ApiNotification } from "@/models/notification";
 import { formatRelativeTime } from "@/shared/format";
 
@@ -30,12 +32,28 @@ export function useNotificationsFeed() {
   const [unreadIds, setUnreadIds] = useState<Set<string>>(() => cached?.unreadIds ?? new Set());
   const [loading, setLoading] = useState(cached === undefined);
   const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const userId = user?.id;
 
-  useEffect(() => {
-    let active = true;
-    queueMicrotask(() => {
-      if (!active) return;
+  useRealtimeRefresh(
+    ["notification.created"],
+    () => setReloadKey((current) => current + 1),
+    user !== null,
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
       const previous = notificationsCache.get(cacheKey);
+      if (!userId) {
+        setNotifications([]);
+        setUnreadIds(new Set());
+        setLoading(false);
+        setError("");
+        return () => {
+          active = false;
+        };
+      }
       if (previous) {
         setNotifications(previous.notifications);
         setUnreadIds(previous.unreadIds);
@@ -62,12 +80,12 @@ export function useNotificationsFeed() {
         .finally(() => {
           if (active) setLoading(false);
         });
-    });
 
-    return () => {
-      active = false;
-    };
-  }, [cacheKey]);
+      return () => {
+        active = false;
+      };
+    }, [cacheKey, reloadKey, userId]),
+  );
 
   const markRead = useCallback((id: string) => {
     setUnreadIds((current) => {
@@ -90,12 +108,12 @@ export function useNotificationsFeed() {
     const previous = unreadIds;
     setUnreadIds(new Set());
     notificationsCache.set(cacheKey, { notifications, unreadIds: new Set() });
-    if (!user) return;
-    void notificationRepository.markAllRead(user.id).catch(() => {
+    if (!userId) return;
+    void notificationRepository.markAllRead(userId).catch(() => {
       setUnreadIds(previous);
       notificationsCache.set(cacheKey, { notifications, unreadIds: previous });
     });
-  }, [cacheKey, notifications, unreadIds, user]);
+  }, [cacheKey, notifications, unreadIds, userId]);
 
-  return { notifications, unreadIds, markRead, markAllRead, loading, error };
+  return { notifications, unreadIds, unreadCount: unreadIds.size, markRead, markAllRead, loading, error };
 }

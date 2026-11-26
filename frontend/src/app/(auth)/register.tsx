@@ -92,6 +92,7 @@ export default function RegisterPage() {
     <AuthScaffold
       footer={
         <OwnerButton
+          testID="register-submit"
           title={submitting ? 'Đang tạo tài khoản...' : 'Tiếp tục'}
           onPress={() => void onContinue()}
           disabled={!canSubmit}
@@ -106,6 +107,7 @@ export default function RegisterPage() {
         <RoleToggle selected={role} onSelect={(next) => { setRole(next); setErrors({}); }} />
         <View className="gap-1">
           <AuthField
+            testID="register-fullName"
             label="Họ và tên"
             icon={{ ios: 'person', android: 'person', web: 'person' }}
             floatingLabel={false}
@@ -120,6 +122,7 @@ export default function RegisterPage() {
         </View>
         <View className="gap-1">
           <AuthField
+            testID="register-phone"
             label="Số điện thoại"
             icon={{ ios: 'phone', android: 'phone', web: 'phone' }}
             floatingLabel={false}
@@ -136,6 +139,7 @@ export default function RegisterPage() {
         </View>
         <View className="gap-1">
           <AuthField
+            testID="register-password"
             label="Mật khẩu"
             icon={{ ios: 'lock', android: 'lock', web: 'lock' }}
             trailingIcon={{ ios: 'eye.slash', android: 'visibility_off', web: 'visibility_off' }}

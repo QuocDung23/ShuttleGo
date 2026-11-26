@@ -12,6 +12,7 @@ import type { AuthUser } from '@/common/auth.js';
 import {
   BookingSource,
   BookingStatus,
+  NotificationType,
   PaymentMethod,
   PaymentStatus,
   UserRole,
@@ -22,6 +23,8 @@ import { assertTimeRange, definedOnly, paginate, skipTake } from '@/common/valid
 import { AppDataSource } from '@/database/data-source.js';
 import { Booking } from '@/modules/bookings/booking.entity.js';
 import { BookingHold } from '@/modules/bookings/booking-hold.entity.js';
+import { Notification } from '@/modules/notifications/notification.entity.js';
+import { persistForUser, publishCreated } from '@/modules/notifications/notifications.service.js';
 import { expirePendingCheckoutBookings } from '@/modules/bookings/booking-expiration.js';
 import {
   applyActiveOccupancyFilter,
@@ -98,6 +101,7 @@ export async function create(input: CreateBookingInput, user: AuthUser) {
   assertTimeRange(input.startTime, input.endTime, 'booking time');
 
   const isPlayerBooking = user.role === UserRole.PLAYER;
+  const createdNotifications: Notification[] = [];
 
   const id = await AppDataSource.transaction(async (manager) => {
     const court = await lockActiveCourt(manager, input.courtId);
@@ -134,9 +138,26 @@ export async function create(input: CreateBookingInput, user: AuthUser) {
     });
     applyStatusTimestamps(booking);
     const saved = await manager.save(booking);
-    if (isPlayerBooking) await manager.delete(BookingHold, { playerId: user.id });
+    if (isPlayerBooking) {
+      await manager.delete(BookingHold, { playerId: user.id });
+      createdNotifications.push(await persistForUser(manager, {
+        userId: venue.ownerId,
+        type: NotificationType.BOOKING_CREATED,
+        title: 'Có yêu cầu đặt sân mới',
+        body: `${booking.contactName} đã đặt ${court.name} ngày ${booking.bookingDate}, ${booking.startTime}–${booking.endTime}.`,
+        bookingId: saved.id,
+      }));
+      createdNotifications.push(await persistForUser(manager, {
+        userId: user.id,
+        type: NotificationType.BOOKING_CREATED,
+        title: 'Đã gửi yêu cầu đặt sân',
+        body: `Yêu cầu đặt ${court.name} ngày ${booking.bookingDate}, ${booking.startTime}–${booking.endTime} đang chờ chủ sân xác nhận.`,
+        bookingId: saved.id,
+      }));
+    }
     return saved.id;
   });
+  createdNotifications.forEach(publishCreated);
   const created = await findOne(id, user);
   const venueId = created.court?.venueId;
   if (isPlayerBooking && venueId) {
@@ -196,6 +217,7 @@ function assertPlayerCanBook(venue: Venue, input: CreateBookingInput) {
 
 export async function update(id: number, input: UpdateBookingInput, user: AuthUser) {
   let statusChanged = false;
+  const notifications: Notification[] = [];
   await AppDataSource.transaction(async (manager) => {
     const booking = await manager.findOne(Booking, { where: { id }, relations: DETAIL_RELATIONS });
     if (!booking) throw notFound(`Booking #${id} not found`);
@@ -222,7 +244,42 @@ export async function update(id: number, input: UpdateBookingInput, user: AuthUs
     applyStatusTimestamps(booking, before);
     await manager.save(booking);
     statusChanged = booking.status !== before.status;
+
+    if (statusChanged && booking.playerId !== null) {
+      if (booking.status === BookingStatus.CONFIRMED) {
+        notifications.push(await persistForUser(manager, {
+          userId: booking.playerId,
+          type: NotificationType.BOOKING_CONFIRMED,
+          title: 'Đặt sân đã được xác nhận',
+          body: `Chủ sân đã xác nhận lịch ${booking.bookingDate}, ${booking.startTime}–${booking.endTime}.`,
+          bookingId: booking.id,
+        }));
+      } else if (booking.status === BookingStatus.CANCELLED) {
+        notifications.push(await persistForUser(manager, {
+          userId: booking.playerId,
+          type: NotificationType.BOOKING_CANCELLED,
+          title: 'Đặt sân đã bị hủy',
+          body: input.cancelReason || `Lịch ${booking.bookingDate}, ${booking.startTime}–${booking.endTime} đã bị chủ sân hủy.`,
+          bookingId: booking.id,
+        }));
+      }
+    }
+
+    if (
+      before.paymentStatus !== booking.paymentStatus &&
+      booking.paymentStatus === PaymentStatus.PAID &&
+      booking.playerId !== null
+    ) {
+      notifications.push(await persistForUser(manager, {
+        userId: booking.playerId,
+        type: NotificationType.PAYMENT_RECEIVED,
+        title: 'Thanh toán đã được xác nhận',
+        body: `Chủ sân đã xác nhận thanh toán cho lịch ${booking.bookingDate}, ${booking.startTime}–${booking.endTime}.`,
+        bookingId: booking.id,
+      }));
+    }
   });
+  notifications.forEach(publishCreated);
   const updated = await findOne(id, user);
   const venueId = updated.court?.venue?.id ?? updated.court?.venueId;
   if (
@@ -258,6 +315,7 @@ export async function update(id: number, input: UpdateBookingInput, user: AuthUs
  */
 export async function claimPayment(id: number, user: AuthUser) {
   await expirePendingCheckoutBookings();
+  let notification: Notification | null = null;
   await AppDataSource.transaction(async (manager) => {
     // Lock the row itself (no joins) so the lock works on Postgres even when
     // relations are nullable; the ownership check only needs the id columns.
@@ -293,7 +351,22 @@ export async function claimPayment(id: number, user: AuthUser) {
     booking.holdExpiresAt = null;
     applyStatusTimestamps(booking, before);
     await manager.save(booking);
+
+    const court = await manager.findOne(Court, {
+      where: { id: booking.courtId },
+      relations: { venue: true },
+    });
+    if (court?.venue) {
+      notification = await persistForUser(manager, {
+        userId: court.venue.ownerId,
+        type: NotificationType.PAYMENT_REPORTED,
+        title: 'Người chơi đã báo chuyển khoản',
+        body: `Vui lòng kiểm tra thanh toán cho lịch ${booking.bookingDate}, ${booking.startTime}–${booking.endTime}.`,
+        bookingId: booking.id,
+      });
+    }
   });
+  if (notification) publishCreated(notification);
   const updated = await findOne(id, user);
   const venue = updated.court?.venue;
   if (venue) {
@@ -313,6 +386,7 @@ export async function cancelPendingCheckout(id: number, user: AuthUser) {
   if (user.role !== UserRole.PLAYER) throw forbidden('Chỉ người đặt mới có thể hủy giữ chỗ.');
   await expirePendingCheckoutBookings();
 
+  let notification: Notification | null = null;
   await AppDataSource.transaction(async (manager) => {
     const booking = await manager.findOne(Booking, {
       where: { id },
@@ -337,7 +411,21 @@ export async function cancelPendingCheckout(id: number, user: AuthUser) {
     booking.holdExpiresAt = null;
     applyStatusTimestamps(booking, before);
     await manager.save(booking);
+    const court = await manager.findOne(Court, {
+      where: { id: booking.courtId },
+      relations: { venue: true },
+    });
+    if (court?.venue) {
+      notification = await persistForUser(manager, {
+        userId: court.venue.ownerId,
+        type: NotificationType.BOOKING_CANCELLED,
+        title: 'Người chơi đã hủy đặt sân',
+        body: `Lịch ${booking.bookingDate}, ${booking.startTime}–${booking.endTime} đã được người chơi hủy.`,
+        bookingId: booking.id,
+      });
+    }
   });
+  if (notification) publishCreated(notification);
 
   const cancelled = await findOne(id, user);
   const venueId = cancelled.court?.venueId;

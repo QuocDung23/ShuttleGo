@@ -24,6 +24,7 @@ export function DateSelector({
         return (
           <Pressable
             key={date.label}
+            testID={`owner-schedule-date-${index}`}
             onPress={() => onSelect(index)}
             className={`h-14 items-center justify-center gap-0.5 rounded-2xl border ${selected ? "w-[66px] border-primary bg-primary" : "w-16 border-outline bg-surface"}`}
           >

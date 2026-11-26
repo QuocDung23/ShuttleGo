@@ -1,6 +1,13 @@
 import { EntityManager, ILike, In, type FindOptionsWhere } from 'typeorm';
 import type { AuthUser } from '@/common/auth.js';
-import { BookingSource, BookingStatus, PaymentStatus, UserRole, VenueStatus } from '@/common/enums.js';
+import {
+  BookingSource,
+  BookingStatus,
+  NotificationType,
+  PaymentStatus,
+  UserRole,
+  VenueStatus,
+} from '@/common/enums.js';
 import { badRequest, conflict, forbidden, notFound } from '@/common/http-error.js';
 import {
   assertTimeRange,
@@ -14,6 +21,8 @@ import { AppDataSource } from '@/database/data-source.js';
 import { Amenity } from '@/modules/amenities/amenity.entity.js';
 import { Booking } from '@/modules/bookings/booking.entity.js';
 import { BookingHold } from '@/modules/bookings/booking-hold.entity.js';
+import { Notification } from '@/modules/notifications/notification.entity.js';
+import { persistForUser, publishCreated } from '@/modules/notifications/notifications.service.js';
 import { expirePendingCheckoutBookings } from '@/modules/bookings/booking-expiration.js';
 import {
   applyActiveOccupancyFilter,
@@ -245,15 +254,47 @@ export async function update(id: number, { amenityIds, ...input }: UpdateVenueIn
 }
 
 export async function review(id: number, input: ReviewVenueInput) {
-  const venue = await getOrFail(id);
-  repo().merge(venue, {
-    status: input.status,
-    reviewedBy: input.reviewedBy,
-    reviewNote: input.reviewNote ?? null,
-    reviewedAt: new Date(),
+  let previousStatus: VenueStatus | undefined;
+  let notification: Notification | null = null;
+  await AppDataSource.transaction(async (manager) => {
+    const venue = await manager.findOneBy(Venue, { id });
+    if (!venue) throw notFound(`Venue #${id} not found`);
+    previousStatus = venue.status;
+    manager.merge(Venue, venue, {
+      status: input.status,
+      reviewedBy: input.reviewedBy,
+      reviewNote: input.reviewNote ?? null,
+      reviewedAt: new Date(),
+    });
+    await manager.save(venue);
+
+    if (previousStatus === input.status) return;
+    if (input.status === VenueStatus.APPROVED) {
+      notification = await persistForUser(manager, {
+        userId: venue.ownerId,
+        type: NotificationType.VENUE_APPROVED,
+        title: 'Sân đã được duyệt',
+        body: `Sân ${venue.name} đã được duyệt và có thể nhận đặt sân.`,
+      });
+    } else if (input.status === VenueStatus.REJECTED) {
+      notification = await persistForUser(manager, {
+        userId: venue.ownerId,
+        type: NotificationType.VENUE_REJECTED,
+        title: 'Sân chưa được duyệt',
+        body: input.reviewNote || `Hồ sơ sân ${venue.name} chưa được duyệt.`,
+      });
+    } else if (input.status === VenueStatus.SUSPENDED) {
+      notification = await persistForUser(manager, {
+        userId: venue.ownerId,
+        type: NotificationType.SYSTEM,
+        title: 'Sân đã bị tạm ngưng',
+        body: input.reviewNote || `Sân ${venue.name} đã bị tạm ngưng.`,
+      });
+    }
   });
-  await repo().save(venue);
   const reviewed = await findOne(id);
+  if (notification) publishCreated(notification);
+  if (previousStatus === reviewed.status) return reviewed;
   if (reviewed.status === VenueStatus.APPROVED) {
     realtime.admins('venue.review_changed', { venueId: reviewed.id, status: 'approved' });
     realtime.users([reviewed.ownerId], 'owner.venue_approved', {

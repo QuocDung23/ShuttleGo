@@ -42,3 +42,9 @@ example
 # generated native folders
 /ios
 /android
+
+# Test reports and logs
+/test-results/
+
+# Generated XCTest data
+/uitests/ShuttleGoUITestData.json*

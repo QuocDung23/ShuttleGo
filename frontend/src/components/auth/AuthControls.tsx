@@ -102,12 +102,14 @@ export function RoleToggle({
       <View className="flex-row gap-3">
         <RoleToggleItem
           active={selected === "player"}
+          testID="register-role-player"
           onPress={() => onSelect("player")}
           title="Người chơi"
           icon={{ ios: "person.fill", android: "person", web: "person" }}
         />
         <RoleToggleItem
           title="Chủ sân"
+          testID="register-role-owner"
           active={selected === "owner"}
           onPress={() => onSelect("owner")}
           icon={{ ios: "building.2", android: "stadium", web: "stadium" }}
@@ -121,16 +123,19 @@ function RoleToggleItem({
   title,
   icon,
   active = false,
+  testID,
   onPress,
 }: {
   title: string;
   icon: SymbolName;
   active?: boolean;
+  testID?: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
+      testID={testID}
       onPress={onPress}
       className={`min-h-11 flex-row items-center gap-2 rounded-full border px-4 ${active ? "border-primary bg-primary-container" : "border-outline bg-surface"}`}
     >

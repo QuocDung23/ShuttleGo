@@ -12,8 +12,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GuestTabBar } from "@/components/guest/GuestTabBar";
+import { UnreadNotificationBadge } from "@/components/notifications/UnreadNotificationBadge";
 import { OwnerText } from "@/components/ui/owner-ui";
 import { venueRepository } from "@/data/repositories/venueRepository";
+import { useNotificationsFeed } from "@/features/notifications/hooks/useNotificationsFeed";
 import type { Venue } from "@/models/venue";
 import { colors } from "@/shared/theme";
 
@@ -41,6 +43,15 @@ const DEFAULT_VENUE_IMAGE =
 
 let exploreVenueCache: Venue[] | null = null;
 
+function normalizeSearch(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .trim();
+}
+
 function formatVnd(value: number) {
   return `${value.toLocaleString("vi-VN")}đ`;
 }
@@ -54,6 +65,8 @@ function getPriceFrom(venue: Venue) {
 
 export function ExploreScreen() {
   const router = useRouter();
+  const { unreadCount } = useNotificationsFeed();
+  const [searchText, setSearchText] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("");
   const [venues, setVenues] = useState<Venue[]>(() => exploreVenueCache ?? []);
   const [loading, setLoading] = useState(exploreVenueCache === null);
@@ -67,7 +80,7 @@ export function ExploreScreen() {
         setError("");
         const res = await venueRepository.list({
           status: "approved",
-          limit: 50,
+          limit: 100,
         });
         exploreVenueCache = res.data;
         if (!cancelled) setVenues(res.data);
@@ -84,10 +97,18 @@ export function ExploreScreen() {
     };
   }, []);
 
+  const filteredVenues = useMemo(() => {
+    const query = normalizeSearch(searchText);
+    if (!query) return venues;
+    return venues.filter((venue) =>
+      normalizeSearch([venue.name, venue.address, venue.district, venue.city].join(" ")).includes(query),
+    );
+  }, [searchText, venues]);
+
   const venueCountLabel = useMemo(() => {
     if (loading) return "Đang tải...";
-    return `${venues.length} sân`;
-  }, [loading, venues.length]);
+    return searchText.trim() ? `${filteredVenues.length} kết quả` : `${venues.length} sân`;
+  }, [filteredVenues.length, loading, searchText, venues.length]);
 
   return (
     <SafeAreaView edges={["top"]} className="flex-1 bg-guest-background">
@@ -104,7 +125,7 @@ export function ExploreScreen() {
           <View className="flex-row items-center gap-5">
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Thông báo"
+              accessibilityLabel={unreadCount ? `Thông báo, ${unreadCount} chưa đọc` : "Thông báo"}
               onPress={() => router.push("/notifications")}
               className="relative h-11 w-8 items-center justify-center"
             >
@@ -117,7 +138,7 @@ export function ExploreScreen() {
                 size={25}
                 tintColor={colors.guestOnSurface}
               />
-              <View className="absolute right-0 top-1 h-2.5 w-2.5 rounded-full bg-error" />
+              <UnreadNotificationBadge count={unreadCount} />
             </Pressable>
           </View>
         </View>
@@ -133,7 +154,26 @@ export function ExploreScreen() {
             placeholder="Tìm sân theo tên hoặc khu vực"
             placeholderTextColor={colors.guestOnSurfaceVariant}
             className="flex-1 font-familjen text-body-lg text-guest-on-surface"
+            value={searchText}
+            onChangeText={setSearchText}
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
+          {searchText.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Xóa tìm kiếm"
+              onPress={() => setSearchText("")}
+              className="h-8 w-8 items-center justify-center"
+            >
+              <SymbolView
+                name={{ ios: "xmark.circle.fill", android: "cancel", web: "cancel" }}
+                size={19}
+                tintColor={colors.guestOnSurfaceVariant}
+              />
+            </Pressable>
+          )}
         </View>
 
         {/* <ScrollView
@@ -186,12 +226,12 @@ export function ExploreScreen() {
             <OwnerText className="text-body text-guest-on-surface-variant">
               {error}
             </OwnerText>
-          ) : venues.length === 0 ? (
+          ) : filteredVenues.length === 0 ? (
             <OwnerText className="text-body text-guest-on-surface-variant">
-              Chưa có sân nào được duyệt.
+              {searchText.trim() ? "Không tìm thấy sân phù hợp." : "Chưa có sân nào được duyệt."}
             </OwnerText>
           ) : (
-            venues.map((venue) => (
+            filteredVenues.map((venue) => (
               <Pressable
                 key={venue.id}
                 accessibilityRole="button"
