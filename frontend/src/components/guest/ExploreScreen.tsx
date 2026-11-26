@@ -1,13 +1,22 @@
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
-import { useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  TextInput,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { GuestTabBar } from "@/components/guest/GuestTabBar";
+import { UnreadNotificationBadge } from "@/components/notifications/UnreadNotificationBadge";
 import { OwnerText } from "@/components/ui/owner-ui";
-import { mockCourts } from "@/features/guest/mockCourts";
+import { venueRepository } from "@/data/repositories/venueRepository";
+import { useNotificationsFeed } from "@/features/notifications/hooks/useNotificationsFeed";
+import type { Venue } from "@/models/venue";
 import { colors } from "@/shared/theme";
 
 const filters: { label: string; icon: SymbolViewProps["name"] }[] = [
@@ -29,35 +38,86 @@ const filters: { label: string; icon: SymbolViewProps["name"] }[] = [
   },
 ];
 
+const DEFAULT_VENUE_IMAGE =
+  "https://images.unsplash.com/photo-1775993167393-f2add1f8eec2?auto=format&fit=crop&w=1200&q=80";
+
+let exploreVenueCache: Venue[] | null = null;
+
+function normalizeSearch(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .trim();
+}
+
+function formatVnd(value: number) {
+  return `${value.toLocaleString("vi-VN")}đ`;
+}
+
+function getPriceFrom(venue: Venue) {
+  const rules = venue.priceRules ?? [];
+  if (rules.length === 0) return "Liên hệ";
+  const min = Math.min(...rules.map((r) => r.pricePerHour));
+  return formatVnd(min);
+}
+
 export function ExploreScreen() {
   const router = useRouter();
+  const { unreadCount } = useNotificationsFeed();
+  const [searchText, setSearchText] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("");
+  const [venues, setVenues] = useState<Venue[]>(() => exploreVenueCache ?? []);
+  const [loading, setLoading] = useState(exploreVenueCache === null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        setLoading(exploreVenueCache === null);
+        setError("");
+        const res = await venueRepository.list({
+          status: "approved",
+          limit: 100,
+        });
+        exploreVenueCache = res.data;
+        if (!cancelled) setVenues(res.data);
+      } catch {
+        if (!cancelled && exploreVenueCache === null) {
+          setError("Không thể tải danh sách sân. Vui lòng thử lại.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredVenues = useMemo(() => {
+    const query = normalizeSearch(searchText);
+    if (!query) return venues;
+    return venues.filter((venue) =>
+      normalizeSearch([venue.name, venue.address, venue.district, venue.city].join(" ")).includes(query),
+    );
+  }, [searchText, venues]);
+
+  const venueCountLabel = useMemo(() => {
+    if (loading) return "Đang tải...";
+    return searchText.trim() ? `${filteredVenues.length} kết quả` : `${venues.length} sân`;
+  }, [filteredVenues.length, loading, searchText, venues.length]);
 
   return (
-    <SafeAreaView
-      edges={["top", "bottom"]}
-      className="flex-1 bg-guest-background"
-    >
+    <SafeAreaView edges={["top"]} className="flex-1 bg-guest-background">
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerClassName="w-full max-w-[560px] self-center gap-5 px-4 pb-5 pt-2"
       >
         <View className="flex-row items-center justify-between">
           <View className="gap-1">
-            <View className="flex-row items-center gap-1.5">
-              <SymbolView
-                name={{
-                  ios: "mappin.and.ellipse",
-                  android: "location_on",
-                  web: "location_on",
-                }}
-                size={15}
-                tintColor={colors.guestOnSurfaceVariant}
-              />
-              <OwnerText className="font-familjen-medium text-caption text-guest-on-surface-variant">
-                Quận 10, TP. Hồ Chí Minh
-              </OwnerText>
-            </View>
             <OwnerText className="font-familjen-bold text-headline-lg text-guest-on-surface">
               ShuttleGo
             </OwnerText>
@@ -65,18 +125,7 @@ export function ExploreScreen() {
           <View className="flex-row items-center gap-5">
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Xem bản đồ"
-              className="h-11 w-8 items-center justify-center"
-            >
-              <SymbolView
-                name={{ ios: "map", android: "map", web: "map" }}
-                size={25}
-                tintColor={colors.guestOnSurface}
-              />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Thông báo"
+              accessibilityLabel={unreadCount ? `Thông báo, ${unreadCount} chưa đọc` : "Thông báo"}
               onPress={() => router.push("/notifications")}
               className="relative h-11 w-8 items-center justify-center"
             >
@@ -89,7 +138,7 @@ export function ExploreScreen() {
                 size={25}
                 tintColor={colors.guestOnSurface}
               />
-              <View className="absolute right-0 top-1 h-2.5 w-2.5 rounded-full bg-error" />
+              <UnreadNotificationBadge count={unreadCount} />
             </Pressable>
           </View>
         </View>
@@ -105,10 +154,29 @@ export function ExploreScreen() {
             placeholder="Tìm sân theo tên hoặc khu vực"
             placeholderTextColor={colors.guestOnSurfaceVariant}
             className="flex-1 font-familjen text-body-lg text-guest-on-surface"
+            value={searchText}
+            onChangeText={setSearchText}
+            returnKeyType="search"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
+          {searchText.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Xóa tìm kiếm"
+              onPress={() => setSearchText("")}
+              className="h-8 w-8 items-center justify-center"
+            >
+              <SymbolView
+                name={{ ios: "xmark.circle.fill", android: "cancel", web: "cancel" }}
+                size={19}
+                tintColor={colors.guestOnSurfaceVariant}
+              />
+            </Pressable>
+          )}
         </View>
 
-        <ScrollView
+        {/* <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerClassName="gap-2"
@@ -138,7 +206,7 @@ export function ExploreScreen() {
               </Pressable>
             );
           })}
-        </ScrollView>
+        </ScrollView> */}
 
         <View className="gap-3">
           <View className="flex-row items-center justify-between">
@@ -146,19 +214,39 @@ export function ExploreScreen() {
               Sân gần bạn
             </OwnerText>
             <OwnerText className="text-caption text-guest-on-surface-variant">
-              {mockCourts.length} sân
+              {venueCountLabel}
             </OwnerText>
           </View>
-          {mockCourts.map((court) => (
-            <Pressable
-              key={court.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Đặt sân ${court.name}`}
-              onPress={() => router.push("./booking")}
-            >
-              <VenueCard court={court} />
-            </Pressable>
-          ))}
+
+          {loading ? (
+            <View className="items-center py-6">
+              <ActivityIndicator color={colors.guestOnSurface} />
+            </View>
+          ) : error ? (
+            <OwnerText className="text-body text-guest-on-surface-variant">
+              {error}
+            </OwnerText>
+          ) : filteredVenues.length === 0 ? (
+            <OwnerText className="text-body text-guest-on-surface-variant">
+              {searchText.trim() ? "Không tìm thấy sân phù hợp." : "Chưa có sân nào được duyệt."}
+            </OwnerText>
+          ) : (
+            filteredVenues.map((venue) => (
+              <Pressable
+                key={venue.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Đặt sân ${venue.name}`}
+                onPress={() =>
+                  router.push({
+                    pathname: "/(guest)/booking",
+                    params: { venueId: String(venue.id) },
+                  })
+                }
+              >
+                <VenueCard venue={venue} />
+              </Pressable>
+            ))
+          )}
         </View>
       </ScrollView>
 
@@ -167,28 +255,33 @@ export function ExploreScreen() {
   );
 }
 
-function VenueCard({ court }: { court: (typeof mockCourts)[number] }) {
+function VenueCard({ venue }: { venue: Venue }) {
+  const image = venue.coverImageUrl || DEFAULT_VENUE_IMAGE;
+  const location =
+    [venue.district, venue.city].filter(Boolean).join(", ") || venue.address;
+  const courtsCount = venue.courts?.length ?? 0;
+
   return (
     <View className="overflow-hidden rounded-[24px] border border-guest-outline bg-guest-surface">
       <Image
-        source={court.image}
+        source={image}
         contentFit="cover"
         style={{ width: "100%", height: 126 }}
       />
       <View className="gap-2 px-3.5 pb-3.5 pt-3">
         <OwnerText className="font-familjen-bold text-title text-guest-on-surface">
-          {court.name}
+          {venue.name}
         </OwnerText>
         <OwnerText className="text-body text-guest-on-surface-variant">
-          {court.distance}
+          {location}
         </OwnerText>
         <View className="mt-1 flex-row items-center justify-between gap-3">
           <OwnerText className="font-familjen-semibold text-label text-guest-on-surface">
-            Từ {court.priceFrom} / giờ
+            Từ {getPriceFrom(venue)} / giờ
           </OwnerText>
           <View className="rounded-full bg-guest-selected px-3 py-1.5">
             <OwnerText className="font-familjen-semibold text-caption text-guest-selected-ink">
-              {court.availableCourts} sân trống
+              {courtsCount > 0 ? `${courtsCount} sân` : "Sân"}
             </OwnerText>
           </View>
         </View>

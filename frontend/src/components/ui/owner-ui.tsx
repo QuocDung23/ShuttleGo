@@ -91,9 +91,10 @@ export function OwnerCard({ children, className = '' }: PropsWithChildren<{ clas
   return <View className={`gap-3 rounded-3xl border border-divider bg-surface p-4 ${className}`}>{children}</View>;
 }
 
-export function OwnerButton({ title, onPress, outline = false, disabled = false, className = '' }: { title: string; onPress?: () => void; outline?: boolean; disabled?: boolean; className?: string }) {
+export function OwnerButton({ title, onPress, outline = false, disabled = false, className = '', testID }: { title: string; onPress?: () => void; outline?: boolean; disabled?: boolean; className?: string; testID?: string }) {
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
       disabled={disabled}

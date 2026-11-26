@@ -11,7 +11,7 @@ const items = [
 
 export function ScheduleLegend() {
   return (
-    <View className="flex-row flex-wrap gap-2.5 px-4 pb-3 pt-2">
+    <View className="shrink-0 flex-row flex-wrap gap-2.5 px-4 pb-3 pt-2">
       {items.map(([color, label]) => (
         <View key={label} className="flex-row items-center gap-1.5">
           <View className={`h-3.5 w-3.5 rounded border ${color}`} />

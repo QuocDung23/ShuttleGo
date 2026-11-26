@@ -1,6 +1,7 @@
 import { amenityPaths } from '@/modules/amenities/amenities.openapi.js';
 import { authPaths } from '@/modules/auth/auth.openapi.js';
 import { bookingPaths } from '@/modules/bookings/bookings.openapi.js';
+import { bookingHoldPaths } from '@/modules/bookings/booking-holds.openapi.js';
 import { courtPaths } from '@/modules/courts/courts.openapi.js';
 import { favoritePaths } from '@/modules/favorites/favorites.openapi.js';
 import { healthPaths } from '@/modules/health/health.openapi.js';
@@ -32,6 +33,7 @@ export const openApiDocument = {
     { name: 'Price rules' },
     { name: 'Favorites' },
     { name: 'Bookings' },
+    { name: 'Booking holds' },
     { name: 'Notifications' },
     { name: 'Reports' },
   ],
@@ -46,6 +48,7 @@ export const openApiDocument = {
     ...priceRulePaths,
     ...favoritePaths,
     ...bookingPaths,
+    ...bookingHoldPaths,
     ...notificationPaths,
     ...reportPaths,
   },

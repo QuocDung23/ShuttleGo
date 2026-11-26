@@ -14,6 +14,7 @@ export function AuthField({
   helper,
   floatingLabel = true,
   className = "",
+  secureTextEntry = false,
   ...props
 }: TextInputProps & {
   label: string;
@@ -23,6 +24,8 @@ export function AuthField({
   floatingLabel?: boolean;
   className?: string;
 }) {
+  const [passwordVisible, setPasswordVisible] = useState(false);
+
   return (
     <View className={`gap-2 ${className}`}>
       <View className="relative mt-2 min-h-[54px] flex-row items-center rounded-[10px] border border-outline bg-surface px-3">
@@ -44,15 +47,33 @@ export function AuthField({
             className="m-0 min-h-7 p-0 font-familjen text-[16px] leading-6 text-on-surface outline-none"
             placeholderTextColor={ownerColors.muted}
             placeholder={floatingLabel ? undefined : label}
+            secureTextEntry={secureTextEntry && !passwordVisible}
             {...props}
           />
         </View>
-        {trailingIcon ? (
-          <SymbolView
-            name={trailingIcon}
-            size={21}
-            tintColor={ownerColors.ink}
-          />
+        {secureTextEntry ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={passwordVisible ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+            accessibilityState={{ selected: passwordVisible }}
+            hitSlop={8}
+            onPress={() => setPasswordVisible((visible) => !visible)}
+            className="-mr-2 h-10 w-10 items-center justify-center"
+          >
+            <SymbolView
+              name={passwordVisible
+                ? { ios: "eye", android: "visibility", web: "visibility" }
+                : trailingIcon ?? {
+                    ios: "eye.slash",
+                    android: "visibility_off",
+                    web: "visibility_off",
+                  }}
+              size={21}
+              tintColor={ownerColors.ink}
+            />
+          </Pressable>
+        ) : trailingIcon ? (
+          <SymbolView name={trailingIcon} size={21} tintColor={ownerColors.ink} />
         ) : null}
       </View>
       {helper ? (
@@ -81,12 +102,14 @@ export function RoleToggle({
       <View className="flex-row gap-3">
         <RoleToggleItem
           active={selected === "player"}
+          testID="register-role-player"
           onPress={() => onSelect("player")}
           title="Người chơi"
           icon={{ ios: "person.fill", android: "person", web: "person" }}
         />
         <RoleToggleItem
           title="Chủ sân"
+          testID="register-role-owner"
           active={selected === "owner"}
           onPress={() => onSelect("owner")}
           icon={{ ios: "building.2", android: "stadium", web: "stadium" }}
@@ -100,16 +123,19 @@ function RoleToggleItem({
   title,
   icon,
   active = false,
+  testID,
   onPress,
 }: {
   title: string;
   icon: SymbolName;
   active?: boolean;
+  testID?: string;
   onPress: () => void;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
+      testID={testID}
       onPress={onPress}
       className={`min-h-11 flex-row items-center gap-2 rounded-full border px-4 ${active ? "border-primary bg-primary-container" : "border-outline bg-surface"}`}
     >

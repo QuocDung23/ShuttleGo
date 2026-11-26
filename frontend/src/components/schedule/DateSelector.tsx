@@ -15,6 +15,7 @@ export function DateSelector({
   return (
     <ScrollView
       horizontal
+      className="h-[72px] flex-grow-0 shrink-0"
       showsHorizontalScrollIndicator={false}
       contentContainerClassName="gap-2 px-4 pb-4"
     >
@@ -23,6 +24,7 @@ export function DateSelector({
         return (
           <Pressable
             key={date.label}
+            testID={`owner-schedule-date-${index}`}
             onPress={() => onSelect(index)}
             className={`h-14 items-center justify-center gap-0.5 rounded-2xl border ${selected ? "w-[66px] border-primary bg-primary" : "w-16 border-outline bg-surface"}`}
           >

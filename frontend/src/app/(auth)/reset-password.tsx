@@ -19,10 +19,12 @@ export default function ResetPasswordPage() {
           label="Mật khẩu mới"
           helper="Tối thiểu 8 ký tự."
           floatingLabel={false}
+          secureTextEntry
         />
         <AuthField
           label="Nhập lại mật khẩu"
           floatingLabel={false}
+          secureTextEntry
         />
       </View>
     </AuthScaffold>

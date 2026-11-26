@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, View } from "react-native";
 
 import { OwnerText } from "@/components/ui/owner-ui";
+import { ScheduleLegend } from "@/components/schedule/ScheduleLegend";
 import type { ScheduleCourt } from "@/models/schedule";
 
 export function CourtScheduleGrid({
@@ -8,10 +9,10 @@ export function CourtScheduleGrid({
   onOpenBooking,
 }: {
   courts: ScheduleCourt[];
-  onOpenBooking: () => void;
+  onOpenBooking: (bookingId: number) => void;
 }) {
   return (
-    <ScrollView className="flex-1" contentContainerClassName="pb-3">
+    <ScrollView className="flex-1" contentContainerClassName="gap-2 pb-3">
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <View>
           {courts.map((court) => (
@@ -25,14 +26,31 @@ export function CourtScheduleGrid({
               {court.slots.map((slot) => (
                 <Pressable
                   key={slot.hour}
-                  onPress={onOpenBooking}
-                  className={`h-14 w-[72px] items-center justify-center gap-[3px] rounded-[14px] ${slot.status === "Chờ duyệt" ? "bg-slot-pending-background" : "bg-slot-booked-background"}`}
+                  testID={slot.bookingId === undefined ? undefined : `owner-booking-${slot.bookingId}`}
+                  disabled={slot.bookingId === undefined}
+                  onPress={() => slot.bookingId !== undefined && onOpenBooking(slot.bookingId)}
+                  className={`h-14 w-[72px] items-center justify-center gap-[3px] rounded-[14px] ${
+                    slot.status === "Còn trống"
+                      ? "border border-slot-available-outline bg-slot-available-background"
+                      : slot.status === "Chờ duyệt"
+                        ? "bg-slot-pending-background"
+                        : "bg-slot-booked-background"
+                  }`}
                 >
-                  <OwnerText tone="muted" className="font-familjen-semibold">
+                  <OwnerText
+                    tone={slot.status === "Còn trống" ? "available" : slot.status === "Chờ duyệt" ? "pending" : "muted"}
+                    className="font-familjen-semibold"
+                  >
                     {slot.hour}
                   </OwnerText>
                   <OwnerText
-                    tone="muted"
+                    tone={
+                      slot.status === "Còn trống"
+                        ? "available"
+                        : slot.status === "Chờ duyệt"
+                          ? "pending"
+                          : "muted"
+                    }
                     className="font-familjen-semibold text-[11px]"
                   >
                     {slot.status}
@@ -43,6 +61,7 @@ export function CourtScheduleGrid({
           ))}
         </View>
       </ScrollView>
+      <ScheduleLegend />
     </ScrollView>
   );
 }

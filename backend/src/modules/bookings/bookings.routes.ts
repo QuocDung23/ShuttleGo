@@ -1,12 +1,16 @@
 import { Router } from 'express';
 import { authenticate } from '@/common/auth.js';
+import { requireApprovedOwnerVenue } from '@/modules/venues/owner-approval.middleware.js';
 import * as controller from '@/modules/bookings/bookings.controller.js';
 
 export const bookingsRouter = Router();
 
 bookingsRouter.use(authenticate);
+// Owners must have an approved venue to manage bookings; players/admins unaffected.
+bookingsRouter.use(requireApprovedOwnerVenue);
 
 bookingsRouter.get('/', controller.index);
+bookingsRouter.post('/:id/cancel', controller.cancelPendingCheckout);
 bookingsRouter.get('/:id', controller.show);
 bookingsRouter.post('/', controller.create);
 
